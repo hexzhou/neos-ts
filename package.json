@@ -42,6 +42,7 @@
     "dev": "vite",
     "build": "vite build && cp -r neos-assets dist/",
     "build:prod": "vite build --base=https://cdn02.moecube.com:444/neos/",
+    "deploy": "npm run build && wrangler deploy",
     "preview": "vite preview",
     "agent": "node agent/src/cli.ts",
     "agent:auth": "node agent/src/cli.ts auth",
@@ -102,6 +103,7 @@
     "vite-plugin-arraybuffer": "^0.0.6",
     "vite-plugin-sass-dts": "^1.3.9",
     "vite-tsconfig-paths": "^4.2.0",
-    "vite-ydk-loader": "^0.0.2"
+    "vite-ydk-loader": "^0.0.2",
+    "wrangler": "4.142.0"
   }
 }
