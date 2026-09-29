@@ -786,3 +786,69 @@ test("xyz material badges track attached cards, detachments and controller chang
   });
   await expect(host.getByTestId("field-card-materials")).toHaveCount(0);
 });
+
+test("spectator life bars show both seats and keep player names in participant view", async ({ page }) => {
+  await setup(page);
+  const bottom = page.locator('[data-testid="duel-player-life"][data-player="me"]');
+  const top = page.locator('[data-testid="duel-player-life"][data-player="op"]');
+  await page.evaluate(async () => {
+    const { roomStore, matStore } = await import("/src/stores/index.ts");
+    const { ygopro } = await import("/src/api/index.ts");
+    const { getUIContainer } = await import("/src/container/compat.ts");
+    const { default: typeChange } = await import("/src/service/room/typeChange.ts");
+    roomStore.players = [
+      { name: "First seat", state: 0, isMe: true },
+      { name: "Second seat", state: 0, isMe: false },
+    ];
+    typeChange(getUIContainer(), new ygopro.YgoStocMsg({
+      stoc_type_change: new ygopro.StocTypeChange({
+        self_type: ygopro.StocTypeChange.SelfType.OBSERVER,
+      }),
+    }));
+    matStore.selfType = ygopro.StocGameMessage.MsgStart.PlayerType.Observer;
+  });
+  await expect(bottom.getByText("First seat", { exact: true })).toBeVisible();
+  await expect(top.getByText("Second seat", { exact: true })).toBeVisible();
+  expect(await page.evaluate(async () => {
+    const { roomStore } = await import("/src/stores/index.ts");
+    return roomStore.players.some((player) => player?.isMe);
+  })).toBe(false);
+
+  // 名称晚于观战身份到达时，也应更新对应席位。
+  await page.evaluate(async () => {
+    const { ygopro } = await import("/src/api/index.ts");
+    const { getUIContainer } = await import("/src/container/compat.ts");
+    const { default: enter } = await import("/src/service/room/hsPlayerEnter.ts");
+    enter(getUIContainer(), new ygopro.YgoStocMsg({
+      stoc_hs_player_enter: new ygopro.StocHsPlayerEnter({ pos: 0, name: "Updated first seat" }),
+    }));
+  });
+  await expect(bottom.getByText("Updated first seat", { exact: true })).toBeVisible();
+  await expect(top.getByText("Second seat", { exact: true })).toBeVisible();
+
+  // 名称消息也必须分别更新两位玩家，避免覆盖同一个席位。
+  await page.evaluate(async () => {
+    const { ygopro } = await import("/src/api/index.ts");
+    const { getUIContainer } = await import("/src/container/compat.ts");
+    const { default: names } = await import("/src/service/duel/sibylName.ts");
+    names(getUIContainer(), new ygopro.StocGameMessage.MsgSibylName({
+      name_0: "Replay first", name_1: "Replay second",
+    }));
+  });
+  await expect(bottom.getByText("Replay first", { exact: true })).toBeVisible();
+  await expect(top.getByText("Replay second", { exact: true })).toBeVisible();
+
+  // 第二个席位的参战玩家仍显示在下方。
+  await page.evaluate(async () => {
+    const { ygopro } = await import("/src/api/index.ts");
+    const { getUIContainer } = await import("/src/container/compat.ts");
+    const { default: typeChange } = await import("/src/service/room/typeChange.ts");
+    typeChange(getUIContainer(), new ygopro.YgoStocMsg({
+      stoc_type_change: new ygopro.StocTypeChange({
+        self_type: ygopro.StocTypeChange.SelfType.PLAYER2,
+      }),
+    }));
+  });
+  await expect(bottom.getByText("Replay second", { exact: true })).toBeVisible();
+  await expect(top.getByText("Replay first", { exact: true })).toBeVisible();
+});

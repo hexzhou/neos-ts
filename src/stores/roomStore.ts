@@ -46,9 +46,12 @@ export class RoomStore implements NeosStore {
   errorMsg?: string = undefined; // 错误信息
 
   getMePlayer() {
+    // 观战者不占玩家席位，下方显示第一个席位，上方显示第二个席位。
+    if (this.selfType === SelfType.OBSERVER) return this.players[0];
     return this.players.find((player) => player?.isMe);
   }
   getOpPlayer() {
+    if (this.selfType === SelfType.OBSERVER) return this.players[1];
     return this.players.find((player) => player !== undefined && !player.isMe);
   }
 
