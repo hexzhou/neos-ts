@@ -6,6 +6,7 @@ import { proxy, useSnapshot } from "valtio";
 
 import { fetchStrings, Region, sendSelectCounterResponse } from "@/api";
 import { getUIContainer } from "@/container/compat";
+import { createDuelDialog } from "@/stores/duelDialogs";
 import { YgoCard } from "@/ui/Shared";
 
 import { NeosModal } from "../NeosModal";
@@ -25,7 +26,7 @@ const defaultProps = {
   options: [],
 };
 
-const localStore = proxy<CheckCounterModalProps>(defaultProps);
+const localStore = proxy<CheckCounterModalProps>({ ...defaultProps });
 
 export const CheckCounterModal = () => {
   const container = getUIContainer();
@@ -88,7 +89,13 @@ export const CheckCounterModal = () => {
   );
 };
 
-let rs: (arg?: any) => void = () => {};
+const dialog = createDuelDialog(() => {
+  localStore.isOpen = false;
+  localStore.options = [];
+  localStore.min = undefined;
+  localStore.counterType = undefined;
+}, undefined);
+const rs = dialog.finish;
 
 export const displayCheckCounterModal = async (
   args: Omit<CheckCounterModalProps, "isOpen">,
@@ -98,9 +105,5 @@ export const displayCheckCounterModal = async (
     localStore[key] = value;
   });
   localStore.isOpen = true;
-  await new Promise<void>((resolve) => (rs = resolve)); // 等待在组件内resolve
-  localStore.isOpen = false;
-  localStore.options = [];
-  localStore.min = undefined;
-  localStore.counterType = undefined;
+  await dialog.wait();
 };

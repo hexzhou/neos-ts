@@ -5,6 +5,7 @@ import { proxy, useSnapshot } from "valtio";
 import { sendSelectEffectYnResponse } from "@/api";
 import { getUIContainer } from "@/container/compat";
 import { matStore } from "@/stores";
+import { createDuelDialog } from "@/stores/duelDialogs";
 
 import { NeosModal } from "../NeosModal";
 
@@ -14,7 +15,7 @@ interface YesNoModalProps {
 }
 const defaultProps = { isOpen: false };
 
-const localStore = proxy<YesNoModalProps>(defaultProps);
+const localStore = proxy<YesNoModalProps>({ ...defaultProps });
 
 export const YesNoModal: React.FC = () => {
   const container = getUIContainer();
@@ -58,11 +59,14 @@ export const YesNoModal: React.FC = () => {
   );
 };
 
-let rs: (arg?: any) => void = () => {};
+const dialog = createDuelDialog(() => {
+  localStore.isOpen = false;
+  localStore.msg = undefined;
+}, undefined);
+const rs = dialog.finish;
 
 export const displayYesNoModal = async (msg: string) => {
   localStore.msg = msg;
   localStore.isOpen = true;
-  await new Promise<void>((resolve) => (rs = resolve)); // 等待在组件内resolve
-  localStore.isOpen = false;
+  await dialog.wait();
 };

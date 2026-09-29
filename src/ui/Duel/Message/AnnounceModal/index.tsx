@@ -12,6 +12,7 @@ import {
 import { isDeclarable, isToken } from "@/common";
 import { getUIContainer } from "@/container/compat";
 import { emptySearchConditions } from "@/middleware/sqlite/fts";
+import { createDuelDialog } from "@/stores/duelDialogs";
 
 import { NeosModal } from "../NeosModal";
 import styles from "./index.module.scss";
@@ -29,7 +30,7 @@ const defaultProps = {
   opcodes: [],
 };
 
-const store = proxy<Props>(defaultProps);
+const store = proxy<Props>({ ...defaultProps });
 
 export const AnnounceModal: React.FC = () => {
   const { isOpen } = useSnapshot(store);
@@ -133,12 +134,14 @@ export const AnnounceModal: React.FC = () => {
   );
 };
 
-let rs: (v?: any) => void = () => {};
+const dialog = createDuelDialog(() => {
+  store.isOpen = false;
+  store.opcodes = [];
+}, undefined);
+const rs = dialog.finish;
 
 export const displayAnnounceModal = async (opcodes: number[]) => {
   store.opcodes = opcodes;
   store.isOpen = true;
-  await new Promise((resolve) => (rs = resolve));
-  store.isOpen = false;
-  store.opcodes = [];
+  await dialog.wait();
 };

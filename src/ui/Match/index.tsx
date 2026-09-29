@@ -21,7 +21,9 @@ import {
 import { useConfig } from "@/config";
 import { AudioActionType, changeScene } from "@/infra/audio";
 import { accountStore, deckStore, resetUniverse, roomStore } from "@/stores";
+import { connectionStore } from "@/stores/connectionStore";
 import { Background, IconFont, ScrollableArea, Select } from "@/ui/Shared";
+import { SaveReplayButton } from "@/ui/Shared/SaveReplayButton";
 
 import {
   CustomRoomContent,
@@ -31,13 +33,14 @@ import {
 import styles from "./index.module.scss";
 import { MatchModal, matchStore } from "./MatchModal";
 import { ReplayModal, replayOpen } from "./ReplayModal";
-import { connectSrvpro } from "./util";
+import { connectSrvpro, disconnectSession } from "./util";
 import { WatchContent, watchStore } from "./WatchContent";
 
 const { servers: serverList } = useConfig();
 
 export const loader: LoaderFunction = () => {
   // 在加载这个页面之前先重置一些store，清掉上局游戏遗留的数据
+  disconnectSession();
   resetUniverse();
   // 更新当前场景
   changeScene(AudioActionType.BGM_MENU);
@@ -47,10 +50,18 @@ export const loader: LoaderFunction = () => {
 export const Component: React.FC = () => {
   const { message, modal } = App.useApp();
   const server = `${serverList[0].ip}:${serverList[0].port}`;
-  const { decks } = deckStore;
-  const [deckName, setDeckName] = useState(decks.at(0)?.deckName ?? "");
+  const { decks, selectedDeck } = useSnapshot(deckStore);
   const user = accountStore.user;
   const { joined } = useSnapshot(roomStore);
+  const { phase: connectionPhase } = useSnapshot(connectionStore);
+  useEffect(() => {
+    if (["idle", "error", "disconnected"].includes(connectionPhase)) {
+      setSingleLoading(false);
+      setAthleticMatchLoading(false);
+      setEntertainMatchLoading(false);
+      setWatchLoading(false);
+    }
+  }, [connectionPhase]);
   const [singleLoading, setSingleLoading] = useState(false); // 单人模式的loading状态
   const [athleticMatchLoading, setAthleticMatchLoading] = useState(false); // 竞技匹配的loading状态
   const [entertainMatchLoading, setEntertainMatchLoading] = useState(false); // 娱乐匹配的loading状态
@@ -242,11 +253,19 @@ export const Component: React.FC = () => {
     setSingleLoading(true);
 
     // 初始化，然后等待后端通知成功加入房间后跳转页面
-    await connectSrvpro({
-      ip: server,
-      player: user?.username ?? "Guest",
-      passWd: "AI",
-    });
+    try {
+      await connectSrvpro({
+        ip: server,
+        player: user?.username ?? "Guest",
+        passWd: "AI",
+      });
+    } catch (error) {
+      message.error(
+        error instanceof Error ? error.message : "连接失败，请重试",
+      );
+    } finally {
+      setSingleLoading(false);
+    }
   };
 
   // 自定义房间
@@ -272,14 +291,14 @@ export const Component: React.FC = () => {
             <Select
               data-testid="match-deck-select"
               title={i18n("Deck")}
-              showSearch
-              value={deckName}
+              showSearch={false}
+              value={selectedDeck?.deckName}
               style={{ width: 200 }}
               onChange={(value) => {
                 // @ts-ignore
                 const item = deckStore.get(value);
                 if (item) {
-                  setDeckName(item.deckName);
+                  deckStore.selectedDeckName = item.deckName;
                 } else {
                   message.error(`Deck ${value} not found`);
                 }
@@ -298,6 +317,7 @@ export const Component: React.FC = () => {
               {i18n("DeckEdit")}
             </Button>
           </Space>
+          <SaveReplayButton previous />
           <div className={styles["mode-select"]}>
             <Mode
               title={i18n("MCCompetitiveMatchmakingTitle")}

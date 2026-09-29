@@ -26,6 +26,8 @@ import {
   InteractType,
   isCardDisabled,
 } from "@/stores";
+import { fieldInspection } from "@/stores/fieldInspection";
+import { fieldSelection, toggleFieldSelection } from "@/stores/fieldSelection";
 import { showCardModal as displayCardModal } from "@/ui/Duel/Message/CardModal";
 import { YgoCard } from "@/ui/Shared";
 
@@ -40,6 +42,8 @@ import {
   interactTypeToIcon,
   interactTypeToString,
 } from "../../utils";
+import { FieldCardInfo } from "./FieldCardInfo";
+import { LinkArrows } from "./FieldSigns";
 import styles from "./index.module.scss";
 import {
   attack,
@@ -56,6 +60,7 @@ export const Card: React.FC<{ idx: number }> = React.memo(({ idx }) => {
   const container = getUIContainer();
   const card = cardStore.inner[idx];
   const snap = useSnapshot(card);
+  const selecting = useSnapshot(fieldSelection).active;
 
   const [spring, api] = useSpring<SpringApiProps>(
     () =>
@@ -83,6 +88,8 @@ export const Card: React.FC<{ idx: number }> = React.memo(({ idx }) => {
 
   const [glowing, setGrowing] = useState(false);
   const [classFocus, setClassFocus] = useState(false);
+  const [overlayAnimation, setOverlayAnimation] =
+    useState<MoveOptions["overlayAnimation"]>();
 
   // >>> 动画 >>>
   /** 动画序列的promise */
@@ -107,7 +114,14 @@ export const Card: React.FC<{ idx: number }> = React.memo(({ idx }) => {
 
   useEffect(() => {
     register(Task.Move, async (options?: MoveOptions) => {
-      await addToAnimation(() => move({ card, api, options }));
+      await addToAnimation(async () => {
+        setOverlayAnimation(options?.overlayAnimation);
+        try {
+          await move({ card, api, options });
+        } finally {
+          setOverlayAnimation(undefined);
+        }
+      });
     });
 
     register(Task.Focus, async () => {
@@ -255,7 +269,8 @@ export const Card: React.FC<{ idx: number }> = React.memo(({ idx }) => {
                 card,
               })),
           });
-          tmpCard = option[0].card! as any; // 一定会有的，有输入则定有输出
+          if (!option.length || container.conn.cancelled) return;
+          tmpCard = option[0].card! as any;
         }
         // 选择发动哪个效果
         handleEffectActivation(
@@ -280,6 +295,8 @@ export const Card: React.FC<{ idx: number }> = React.memo(({ idx }) => {
   };
 
   const onClick = () => {
+    if (toggleFieldSelection(card)) return;
+    fieldInspection.pinned = card.uuid;
     const onCardClick = (card: CardType) => {
       const selectInfo = card.selectInfo;
       if (selectInfo.selectable || selectInfo.selected) {
@@ -362,6 +379,7 @@ export const Card: React.FC<{ idx: number }> = React.memo(({ idx }) => {
       data-card-position={ygopro.CardPosition[location.position]}
       data-card-position-value={location.position}
       data-card-is-overlay={location.is_overlay}
+      data-card-overlay-animation={overlayAnimation ?? "none"}
       data-card-overlay-sequence={location.overlay_sequence}
       data-card-is-token={snap.isToken}
       data-card-status={snap.status}
@@ -394,13 +412,24 @@ export const Card: React.FC<{ idx: number }> = React.memo(({ idx }) => {
           "--focus-display": spring.focusDisplay,
           "--focus-opacity": spring.focusOpacity,
           opacity: spring.opacity,
+          visibility:
+            location.is_overlay && !overlayAnimation ? "hidden" : "visible",
+          pointerEvents: location.is_overlay ? "none" : undefined,
         } as any as CSSProperties
       }
       onClick={onClick}
+      onMouseEnter={() => {
+        fieldInspection.hovered = card.uuid;
+      }}
+      onMouseLeave={() => {
+        if (fieldInspection.hovered === card.uuid)
+          fieldInspection.hovered = null;
+      }}
     >
       <div className={styles.focus} />
       <div className={styles.shadow} />
       <Dropdown
+        disabled={selecting}
         menu={dropdownMenu}
         placement="top"
         overlayClassName={classnames(styles.dropdown, {
@@ -422,6 +451,17 @@ export const Card: React.FC<{ idx: number }> = React.memo(({ idx }) => {
           <YgoCard className={styles.back} isBack />
         </div>
       </Dropdown>
+      <LinkArrows card={snap as CardType} />
+      <animated.div
+        className={styles["field-info-anchor"]}
+        style={{
+          transform: spring.rz.to(
+            (rz) => `translate(-50%, -50%) rotateZ(${-rz}deg) translateZ(2px)`,
+          ),
+        }}
+      >
+        <FieldCardInfo card={snap as CardType} />
+      </animated.div>
       {snap.targeted ? <div className={styles.streamer} /> : <></>}
     </animated.div>
   );

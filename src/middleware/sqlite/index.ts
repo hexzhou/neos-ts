@@ -9,6 +9,7 @@ import initSqlJs, { Database } from "sql.js";
 
 import { isSuperReleaseCard } from "@/api";
 import { CardData, CardMeta, CardText } from "@/api/cards";
+import { TYPE_LINK } from "@/common";
 import { useConfig } from "@/config";
 import { pfetch } from "@/infra";
 
@@ -44,9 +45,19 @@ export interface sqliteResult {
   ftsResult?: CardMeta[];
 }
 
-const sqlPromise = initSqlJs({
-  locateFile: (file) => `${NeosConfig.assetsPath}/${file}`,
-});
+let sqlPromise: ReturnType<typeof initSqlJs> | undefined;
+const loadSql = () => {
+  if (!sqlPromise) {
+    sqlPromise = pfetch(`${NeosConfig.assetsPath}/sql-wasm.wasm`)
+      .then((response) => response.arrayBuffer())
+      .then((wasmBinary) => initSqlJs({ wasmBinary }))
+      .catch((error) => {
+        sqlPromise = undefined;
+        throw error;
+      });
+  }
+  return sqlPromise;
+};
 
 export default function <T extends sqliteCmd>(
   action: sqliteAction<T>,
@@ -97,18 +108,16 @@ function helper<T extends sqliteCmd>(action: sqliteAction<T>) {
           progressCallback: action.initInfo?.progressCallback,
         }).then((res) => res.arrayBuffer());
 
-        return Promise.all([
-          sqlPromise,
-          releasePromise,
-          preReleasePromise,
-        ]).then(([SQL, releaseBuffer, preReleaseBuffer]) => {
-          YGODBS.release = new SQL.Database(new Uint8Array(releaseBuffer));
-          YGODBS.preRelease = new SQL.Database(
-            new Uint8Array(preReleaseBuffer),
-          );
+        return Promise.all([loadSql(), releasePromise, preReleasePromise]).then(
+          ([SQL, releaseBuffer, preReleaseBuffer]) => {
+            YGODBS.release = new SQL.Database(new Uint8Array(releaseBuffer));
+            YGODBS.preRelease = new SQL.Database(
+              new Uint8Array(preReleaseBuffer),
+            );
 
-          console.log("YGODB inited!");
-        });
+            console.log("YGODB inited!");
+          },
+        );
       } else {
         console.warn("init YGODB action without initInfo");
         return {};
@@ -131,6 +140,8 @@ function helper<T extends sqliteCmd>(action: sqliteAction<T>) {
         const dataResult = dataStmt.getAsObject({ $id: code });
         const textStmt = db.prepare("SELECT * FROM texts WHERE ID = $id");
         const textResult = textStmt.getAsObject({ $id: code });
+        dataStmt.free();
+        textStmt.free();
 
         return {
           selectResult: constructCardMeta(code, dataResult, textResult),
@@ -184,6 +195,10 @@ export function constructCardMeta(
 ): CardMeta {
   const level = data.level ?? 0;
   data.level = level & 0xff;
+  if ((data.type ?? 0) & TYPE_LINK) {
+    data.link = data.level;
+    data.linkMarkers = data.def ?? 0;
+  }
   data.lscale = (level >> 24) & 0xff;
   data.rscale = (level >> 16) & 0xff;
 

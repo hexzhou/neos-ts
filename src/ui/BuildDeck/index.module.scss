@@ -76,6 +76,22 @@
   height: 100%;
 }
 
+.database-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-right: 1rem;
+
+  > :first-child {
+    flex: 1;
+    min-width: 0;
+  }
+
+  > button {
+    flex-shrink: 0;
+  }
+}
+
 .search-count {
   font-size: 0.7rem;
 }

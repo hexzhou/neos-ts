@@ -22,7 +22,13 @@ export interface MatState {
 
   timeLimits: BothSide<number> & {
     set: (controller: number, time: number) => void;
+    activePlayer: number | null;
+    receivedAt: number;
+    limit: number;
   }; // 双方的时间限制
+
+  stopClock: () => void;
+  clearPhaseCommands: () => void;
 
   hint: HintState;
 
@@ -104,6 +110,7 @@ export interface HintState {
 
 export interface PhaseState {
   currentPhase: ygopro.StocGameMessage.MsgNewPhase.PhaseType;
+  command: { type: "idle" | "battle"; player: number } | null;
   enableBp: boolean; // 允许进入战斗阶段
   enableM2: boolean; // 允许进入M2阶段
   enableEp: boolean; // 允许回合结束
@@ -120,5 +127,6 @@ export enum ChainSetting {
   CHAIN_ALL = 0, // 打开全部时点
   CHAIN_IGNORE = 1, // 关闭连锁时点
   CHAIN_SMART = 2, // 只打开关键时点
+  CHAIN_AVAILABLE = 3, // 有合法可发动效果时询问，不受关键时点限制
 }
 // <<< play mat state <<<

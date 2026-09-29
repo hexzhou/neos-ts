@@ -2,9 +2,9 @@ import { sendSelectMultiResponse, ygopro } from "@/api";
 import MsgSelectCard = ygopro.StocGameMessage.MsgSelectCard;
 
 import { Container } from "@/container";
-import { displaySelectActionsModal } from "@/ui/Duel/Message/SelectActionsModal";
 
 import { fetchCheckCardMeta } from "../utils";
+import { selectCards } from "./cardSelection";
 
 export default async (container: Container, selectCard: MsgSelectCard) => {
   const { cancelable, min, max, cards } = selectCard;
@@ -13,21 +13,22 @@ export default async (container: Container, selectCard: MsgSelectCard) => {
 
   // TODO: handle release_param
 
-  if (!cancelable && cards.length === 1) {
+  if (!cancelable && min === 1 && max === 1 && cards.length === 1) {
     // auto send
     sendSelectMultiResponse(conn, [cards[0].response]);
     return;
   }
 
-  const { selecteds, mustSelects, selectables } = await fetchCheckCardMeta(
-    context,
-    cards,
-  );
-  await displaySelectActionsModal({
+  const { mustSelects, selectables } = await fetchCheckCardMeta(context, cards);
+  if (container.conn.cancelled) return;
+  await selectCards(container, {
+    selectionKind: "count",
+    totalLevels: 0,
+    overflow: false,
+    single: false,
     cancelable,
     min,
     max,
-    selecteds,
     mustSelects,
     selectables,
   });

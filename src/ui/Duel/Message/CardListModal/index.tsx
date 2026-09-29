@@ -4,6 +4,7 @@ import { proxy, useSnapshot } from "valtio";
 
 import { ygopro } from "@/api";
 import { cardStore, CardType } from "@/stores";
+import { registerDuelDialogReset } from "@/stores/duelDialogs";
 import { YgoCard } from "@/ui/Shared";
 
 import { showCardModal } from "../CardModal";
@@ -21,7 +22,8 @@ const defaultStore = {
   isZone: true,
 };
 
-const store = proxy(defaultStore);
+const store = proxy({ ...defaultStore });
+registerDuelDialogReset(() => Object.assign(store, defaultStore));
 
 export const CardListModal = () => {
   const { zone, monster, isOpen, isZone, controller } = useSnapshot(store);
@@ -44,6 +46,8 @@ export const CardListModal = () => {
 
   return (
     <Drawer
+      rootClassName="duel-side-drawer"
+      data-testid="duel-card-list-drawer"
       open={isOpen}
       onClose={handleOkOrCancel}
       // headerStyle={{ display: "none" }}
@@ -75,6 +79,6 @@ export const displayCardListModal = ({
   store.isOpen = true;
   store.isZone = isZone ?? false;
   monster && (store.monster = monster);
-  zone && (store.zone = zone);
+  zone !== undefined && (store.zone = zone);
   controller !== undefined && (store.controller = controller);
 };

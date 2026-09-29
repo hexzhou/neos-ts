@@ -2,6 +2,7 @@ import { INTERNAL_Snapshot as Snapshot, proxy, useSnapshot } from "valtio";
 
 import { sendSelectMultiResponse, sendSelectSingleResponse } from "@/api";
 import { getUIContainer } from "@/container/compat";
+import { createDuelDialog } from "@/stores/duelDialogs";
 
 import {
   type Option,
@@ -16,6 +17,7 @@ const defaultProps: Omit<
   SelectCardsModalProps,
   "onSubmit" | "onCancel" | "onFinish"
 > & { isChain: boolean } = {
+  selectionKind: "count",
   isOpen: false,
   isChain: false,
   min: 0, // 最少选择多少卡
@@ -30,7 +32,7 @@ const defaultProps: Omit<
   overflow: false, // 选择等级时候，是否可以溢出
 };
 
-const localStore = proxy(defaultProps);
+const localStore = proxy({ ...defaultProps });
 
 export const SelectActionsModal: React.FC = () => {
   const container = getUIContainer();
@@ -68,7 +70,11 @@ export const SelectActionsModal: React.FC = () => {
   );
 };
 
-let rs: (v?: any) => void = () => {};
+const dialog = createDuelDialog(() => {
+  localStore.isOpen = false;
+  resetSelectActionsModal();
+}, undefined);
+const rs = dialog.finish;
 
 export const displaySelectActionsModal = async (
   args: Partial<Omit<typeof defaultProps, "isOpen">>,
@@ -79,8 +85,7 @@ export const displaySelectActionsModal = async (
     localStore[key] = value;
   });
   localStore.isOpen = true;
-  await new Promise<void>((resolve) => (rs = resolve)); // 等待在组件内resolve
-  localStore.isOpen = false;
+  await dialog.wait();
 };
 
 const resetSelectActionsModal = () => {

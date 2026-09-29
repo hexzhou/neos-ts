@@ -8,6 +8,7 @@ import { INTERNAL_Snapshot as Snapshot, useSnapshot } from "valtio";
 import { type CardMeta, Region, ygopro } from "@/api";
 import { fetchStrings } from "@/api";
 import { CardType, isMe, matStore } from "@/stores";
+import { validSelection } from "@/stores/selectionRules";
 import { ScrollableArea, YgoCard } from "@/ui/Shared";
 
 import { groupBy } from "../../utils";
@@ -16,6 +17,7 @@ import { NeosModal } from "../NeosModal";
 import styles from "./index.module.scss";
 
 export interface SelectCardsModalProps {
+  selectionKind?: "count" | "tribute" | "sum";
   isOpen: boolean;
   min: number;
   max: number;
@@ -34,6 +36,7 @@ export interface SelectCardsModalProps {
 }
 
 export const SelectCardsModal: React.FC<SelectCardsModalProps> = ({
+  selectionKind = "count",
   isOpen,
   min,
   max,
@@ -54,6 +57,8 @@ export const SelectCardsModal: React.FC<SelectCardsModalProps> = ({
   const [result, setResult] = useState<[ygopro.CardZone, Option[]][]>([]);
   const [submitable, setSubmitable] = useState(false);
 
+  const singleSelection = single || max === 1;
+
   const hint = useSnapshot(matStore.hint);
   const preHintMsg = hint.esHint || "";
   const selectHintMsg = hint.esSelectHint || "请选择卡片";
@@ -67,28 +72,32 @@ export const SelectCardsModal: React.FC<SelectCardsModalProps> = ({
       zone,
       [] as Option[],
     ]);
-    if (initial.length > 0) {
-      setResult(initial);
-    }
-  }, [selectables]);
+    setResult(initial);
+  }, [selectables, isOpen]);
 
   // 判断是否可以提交
   useEffect(() => {
     const flatResult = result.map(([_, v]) => v).flat();
-    const [sumLevel1, sumLevel2] = (["level1", "level2"] as const).map((key) =>
-      [...mustSelects, ...flatResult]
-        .map((option) => option[key] || 0)
-        .reduce((sum, current) => sum + current, 0),
-    );
-    const levelMatched = overflow
-      ? sumLevel1 >= totalLevels || sumLevel2 >= totalLevels
-      : sumLevel1 === totalLevels || sumLevel2 === totalLevels;
     setSubmitable(
-      single
-        ? flatResult.length === 1
-        : flatResult.length >= min && flatResult.length <= max && levelMatched,
+      validSelection(flatResult, mustSelects, {
+        selectionKind,
+        single,
+        min,
+        max,
+        totalLevels,
+        overflow,
+      }),
     );
-  }, [result]);
+  }, [
+    result,
+    single,
+    min,
+    max,
+    mustSelects,
+    totalLevels,
+    overflow,
+    selectionKind,
+  ]);
 
   const zoneOptions = grouped.map((x) => ({
     value: x[0],
@@ -108,10 +117,20 @@ export const SelectCardsModal: React.FC<SelectCardsModalProps> = ({
 
   // Quick select if possiable
   const onQuickSelect = (option: Option) => {
-    if (max === 1 || single) {
+    if (
+      (max === 1 || single) &&
+      validSelection([option], mustSelects, {
+        selectionKind,
+        single,
+        min,
+        max,
+        totalLevels,
+        overflow,
+      })
+    ) {
       // if `max` is 1, it means that we can just select one,
       // so quick selection is possiable in this case.
-      onSubmit([option]);
+      onSubmit([...mustSelects, option]);
     }
   };
 
@@ -191,7 +210,16 @@ export const SelectCardsModal: React.FC<SelectCardsModalProps> = ({
                   <CheckCard.Group
                     onChange={(res: any) => {
                       const newRes: [ygopro.CardZone, Option[]][] = result.map(
-                        ([k, v]) => [k, k === selectedZone ? res : v],
+                        ([k, v]) => [
+                          k,
+                          k === selectedZone
+                            ? singleSelection
+                              ? res.slice(-1)
+                              : res
+                            : singleSelection
+                            ? []
+                            : v,
+                        ],
                       );
                       setResult(newRes);
                     }}
@@ -315,6 +343,7 @@ export interface Option {
   // 效果
   effectDesc?: string;
   // 作为素材的cost，比如同调召唤的星级
+  tributeValue?: number;
   level1?: number;
   level2?: number;
   response?: number;

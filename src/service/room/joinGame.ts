@@ -5,6 +5,7 @@ export default function handleJoinGame(
   container: Container,
   pb: ygopro.YgoStocMsg,
 ) {
-  const _msg = pb.stoc_join_game;
+  const seconds = pb.stoc_join_game.time_limit;
+  container.context.roomStore.timeLimit = seconds >= 0 ? seconds : null;
   container.context.roomStore.joined = true;
 }

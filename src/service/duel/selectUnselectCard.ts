@@ -1,6 +1,7 @@
 import { ygopro } from "@/api";
 import { Container } from "@/container";
 import { displaySelectActionsModal } from "@/ui/Duel/Message/SelectActionsModal";
+import { clearSelectInfo } from "@/ui/Duel/utils";
 
 import { fetchCheckCardMeta } from "../utils";
 import { isAllOnField } from "./util";
@@ -21,7 +22,11 @@ export default async (
     selectable_cards: selectableCards,
     selected_cards: selectedCards,
   } = selectUnselectCards;
+  clearSelectInfo();
   if (
+    selectableCards
+      .concat(selectedCards)
+      .every((info) => !!cardStore.find(info.location)) &&
     isAllOnField(
       selectableCards.concat(selectedCards).map((info) => info.location),
     )
@@ -60,15 +65,21 @@ export default async (
       mustSelects: mustSelect2,
       selectables: selectable2,
     } = await fetchCheckCardMeta(context, selectedCards, true);
+    if (container.conn.cancelled) return;
     await displaySelectActionsModal({
       finishable,
       cancelable,
       min: min,
       max: max,
       single: true,
-      selecteds: [...selecteds1, ...selecteds2],
+      selecteds: [],
       mustSelects: [...mustSelect1, ...mustSelect2],
-      selectables: [...selectable1, ...selectable2],
+      selectables: [
+        ...selectable1,
+        ...selectable2,
+        ...selecteds1,
+        ...selecteds2,
+      ],
     });
   }
 };

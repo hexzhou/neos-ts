@@ -20,6 +20,9 @@ export interface CardData {
   atk?: number;
   def?: number;
   level?: number;
+  rank?: number;
+  link?: number;
+  linkMarkers?: number;
   race?: number;
   attribute?: number;
   lscale?: number;
@@ -83,9 +86,9 @@ export function getCardImgUrl(code: number, back = false) {
       ? assetsPath
       : `${import.meta.env.BASE_URL}${assetsPath}`;
   if (back || code === 0) {
-    return `${ASSETS_BASE}/card_back.jpg`;
+    return `${ASSETS_BASE}/card_back.webp`;
   } else if (isSuperReleaseCard(code)) {
-    return `${preReleaseResource.img}/${code}.jpg`;
+    return `${preReleaseResource.img}/${code}.webp`;
   } else {
     // Define translations for different languages (I18N)
     const language = localStorage.getItem("language");
@@ -105,6 +108,6 @@ export function getCardImgUrl(code: number, back = false) {
     }
     /* End of definition (I18N) */
 
-    return `${imgUrl}/${code}.jpg`;
+    return `${imgUrl}/${code}.webp`;
   }
 }

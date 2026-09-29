@@ -108,6 +108,36 @@ interface ReplayPacket {
 
 // 保存对局回放数据的`Store`
 class ReplayStore implements NeosStore {
+  private recordingFilename?: string;
+  recordedCount = 0;
+  lastReplay: { buffers: ArrayBuffer[]; filename: string } | null = null;
+  archive() {
+    if (!this.isReplay && this.inner.length) {
+      this.recordingFilename ??= `${new Date()
+        .toISOString()
+        .replace(/[:.]/g, "-")}.neos.yrp3d`;
+      this.lastReplay = ref({
+        buffers: this.encode(),
+        filename: this.recordingFilename,
+      });
+    }
+  }
+
+  download() {
+    this.archive();
+    if (!this.lastReplay) return;
+    const url = URL.createObjectURL(
+      new Blob(this.lastReplay.buffers, { type: "application/octet-stream" }),
+    );
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = this.lastReplay.filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   isReplay: boolean = false; // 是否进入了回放模式
   paused: boolean = false;
   waiting: boolean = false;
@@ -127,6 +157,7 @@ class ReplayStore implements NeosStore {
   }
 
   record(ygoPacket: YgoProPacket) {
+    this.recordedCount += 1;
     this.inner.push({
       packet: ygoPacket2replayPacket(ygoPacket),
     });
@@ -193,6 +224,9 @@ class ReplayStore implements NeosStore {
     return this.inner.map((spot) => spot.packet).map(replayPacket2arrayBuffer);
   }
   reset() {
+    this.archive();
+    this.recordedCount = 0;
+    this.recordingFilename = undefined;
     this.releaseAll();
     this.inner.splice(0);
     this.isReplay = false;

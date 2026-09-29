@@ -68,7 +68,7 @@
     "OnlyShowDecksIUploaded": "只显示我上传的卡组",
     "ShowAllOnlineDecks": "显示全部在线卡组",
     "CardDatabase": "卡片数据库",
-    "MDProOnlineDeck": "Mdpro在线卡组"
+    "MDProOnlineDeck": "MDPro在线卡组"
   },
   "Filter": {
     "CardFilter": "卡片筛选",
@@ -162,6 +162,10 @@
     "PleaseEnterChatContent": "请输入聊天内容"
   },
   "MatchModal": {
+    "CustomServer": "自定义服务器",
+    "ServerAddress": "服务器地址",
+    "ServerAddressPlaceholder": "例如 wss://example.com:443",
+    "CustomServerHint": "支持域名:端口或完整的 wss:// 地址，自动记住上次输入。",
     "PleaseEnterCustomRoomInformation": "请输入自定义房间信息",
     "Server": "服务器",
     "KoishiServer": "Koishi服",

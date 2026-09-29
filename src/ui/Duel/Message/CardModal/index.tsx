@@ -4,6 +4,7 @@ import React from "react";
 import { proxy, useSnapshot } from "valtio";
 
 import { type CardMeta, fetchStrings, Region } from "@/api";
+import { registerDuelDialogReset } from "@/stores/duelDialogs";
 import { YgoCard } from "@/ui/Shared";
 
 import {
@@ -36,7 +37,8 @@ const defaultStore = {
   counters: {} as Record<number, number>,
 };
 
-const store = proxy(defaultStore);
+const store = proxy({ ...defaultStore });
+registerDuelDialogReset(() => Object.assign(store, defaultStore));
 
 export const CardModal = () => {
   const snap = useSnapshot(store);

@@ -34,6 +34,7 @@ export enum RoomStage {
 }
 
 export class RoomStore implements NeosStore {
+  timeLimit: number | null = null; // null 表示尚未收到房间时限，0 表示不限时
   joined: boolean = false; // 是否已经加入房间
   players: (Player | undefined)[] = Array.from({ length: 4 }).map(
     (_) => undefined,
@@ -52,10 +53,12 @@ export class RoomStore implements NeosStore {
   }
 
   reset(): void {
+    this.timeLimit = null;
     this.joined = false;
     this.players = [];
     this.observerCount = 0;
     this.isHost = false;
+    this.selfType = SelfType.UNKNOWN;
     this.stage = RoomStage.WAITING;
     this.errorMsg = undefined;
   }

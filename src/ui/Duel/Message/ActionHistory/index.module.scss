@@ -14,9 +14,10 @@
 .drawer {
   width: 100%;
   right: 10%;
-  --height: 40rem;
+  --height: min(40rem, 100%);
   top: calc((100% - var(--height)) / 2);
   height: var(--height) !important;
+  max-height: 100%;
   position: relative;
   border-radius: 0.375rem;
 

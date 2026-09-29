@@ -23,7 +23,6 @@ import { useSnapshot } from "valtio";
 import { useConfig } from "@/config";
 import { getUIContainer } from "@/container/compat";
 import { AudioActionType, changeScene } from "@/infra/audio";
-import { closeSocket } from "@/middleware/socket";
 import {
   accountStore,
   deckStore,
@@ -34,6 +33,7 @@ import {
   roomStore,
   sideStore,
 } from "@/stores";
+import { disconnectSession } from "@/ui/Match/util";
 import { Background, IconFont, Select, SpecialButton } from "@/ui/Shared";
 
 import { Chat } from "./Chat";
@@ -54,14 +54,11 @@ export const Component: React.FC = () => {
   const { message } = App.useApp();
   const { user } = useSnapshot(accountStore);
   const [collapsed, setCollapsed] = useState(false);
-  const { decks } = deckStore;
-  const defaultDeck =
-    decks.length > 0 ? JSON.parse(JSON.stringify(decks[0])) : undefined;
-  const [deck, setDeck] = useState<IDeck | undefined>(defaultDeck);
+  const { selectedDeck } = useSnapshot(deckStore);
+  const deck = selectedDeck ? deckStore.get(selectedDeck.deckName) : undefined;
   const room = useSnapshot(roomStore);
   const { errorMsg } = room;
   const me = room.getMePlayer();
-  const op = room.getOpPlayer();
   const navigate = useNavigate();
 
   const updateDeck = (deck: IDeck) => {
@@ -74,8 +71,7 @@ export const Component: React.FC = () => {
     const newDeck = deckStore.get(deckName);
     if (newDeck) {
       sendHsNotReady(container.conn);
-      updateDeck(newDeck);
-      setDeck(newDeck);
+      deckStore.selectedDeckName = newDeck.deckName;
     } else {
       message.error(`Deck ${deckName} not found`);
     }
@@ -95,11 +91,9 @@ export const Component: React.FC = () => {
   };
 
   useEffect(() => {
-    // 组件初始化时发一次更新卡组的包
-    //
-    // 否则娱乐匹配准备会有问题（原因不明）
-    if (deck) sendUpdateDeck(container.conn, deck);
-  }, []);
+    // 入场或切换卡组时同步服务端及换副卡组缓存。
+    if (deck && room.selfType !== SelfType.OBSERVER) updateDeck(deck);
+  }, [deck, room.selfType]);
   useEffect(() => {
     if (room.stage === RoomStage.DUEL_START) {
       // 决斗开始，跳转决斗页面
@@ -156,7 +150,7 @@ export const Component: React.FC = () => {
                     mora={
                       me?.moraResult !== undefined &&
                       me.moraResult !== HandType.UNKNOWN
-                        ? Object.values(Mora)[me.moraResult - 1]
+                        ? moraByHand[me.moraResult]
                         : undefined
                     }
                   />
@@ -170,14 +164,14 @@ export const Component: React.FC = () => {
                   key={idx}
                   who={Who.Op}
                   player={player}
-                  ready={op?.state === PlayerState.READY}
+                  ready={player?.state === PlayerState.READY}
                   btn={
                     room.stage === RoomStage.WAITING ? null : (
                       <MoraAvatar
                         mora={
-                          op?.moraResult !== undefined &&
-                          op.moraResult !== HandType.UNKNOWN
-                            ? Object.values(Mora)[op.moraResult - 1]
+                          player?.moraResult !== undefined &&
+                          player.moraResult !== HandType.UNKNOWN
+                            ? moraByHand[player.moraResult]
                             : undefined
                         }
                       />
@@ -200,6 +194,12 @@ export const Component: React.FC = () => {
       </div>
     </div>
   );
+};
+
+const moraByHand: Partial<Record<HandType, Mora>> = {
+  [HandType.ROCK]: Mora.Rock,
+  [HandType.SCISSORS]: Mora.Scissors,
+  [HandType.PAPER]: Mora.Paper,
 };
 
 enum Who {
@@ -256,7 +256,11 @@ const PlayerZone: React.FC<{
 
 // 展示猜拳结果的组件
 const MoraAvatar: React.FC<{ mora?: Mora }> = ({ mora }) => (
-  <div style={{ marginLeft: "auto" }}>
+  <div
+    data-testid="waitroom-mora-result"
+    data-hand={mora}
+    style={{ marginLeft: "auto" }}
+  >
     {mora ? (
       <Avatar
         style={{ marginLeft: "auto" }}
@@ -281,12 +285,16 @@ const Controller: React.FC<{ onDeckChange: (deckName: string) => void }> = ({
       <Select
         data-testid="waitroom-deck-select"
         title={i18n("Deck")}
-        showSearch
+        showSearch={false}
         style={{ width: "15.6rem" }}
-        defaultValue={snapDeck.decks[0].deckName}
+        value={snapDeck.selectedDeck?.deckName}
+        disabled={
+          snapRoom.stage !== RoomStage.WAITING ||
+          snapRoom.selfType === SelfType.OBSERVER
+        }
         options={snapDeck.decks.map((deck) => ({
           value: deck.deckName,
-          title: deck.deckName,
+          label: deck.deckName,
         }))}
         onChange={
           // @ts-ignore
@@ -338,7 +346,7 @@ const SideButtons: React.FC<{
         }
         onClick={() => {
           // 断开websocket🔗
-          closeSocket(getUIContainer().conn);
+          disconnectSession();
           // 重置stores
           resetUniverse();
           // 返回上一个路由

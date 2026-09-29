@@ -1,6 +1,6 @@
 import { proxy } from "valtio";
 
-import { CardMeta, ygopro } from "@/api";
+import { CardData, CardMeta, ygopro } from "@/api";
 import { STATUS_DISABLED, STATUS_FORBIDDEN } from "@/common";
 
 import type { Interactivity } from "./matStore/types";
@@ -14,7 +14,8 @@ import { type NeosStore } from "./shared";
 export interface CardType {
   uuid: string; // 一张卡的唯一标识
   code: number; // 卡号
-  meta: CardMeta; // 卡片元数据
+  meta: CardMeta;
+  originalData?: CardData; // 用于比较场上数值与原始数值 // 卡片元数据
   location: ygopro.CardLocation;
   idleInteractivities: Interactivity<number>[]; // IDLE状态下的互动信息
   counters: { [type: number]: number }; // 指示器
@@ -25,6 +26,8 @@ export interface CardType {
     selected: boolean; // 是否已经被选择
     response?: number; // 被选择时发送给服务器的值
   };
+  equipTarget?: string; // 装备目标的 UUID，随控制权和位置变化保持身份
+  effectTargets?: string[]; // 持续效果对象的 UUID
   status: number; // Current status, STATUS_DISABLED, etc.
 }
 
@@ -75,8 +78,18 @@ export class CardStore implements NeosStore {
       );
     }
   }
-  find(location: ygopro.CardLocation): CardType | undefined {
-    return this.at(location.zone, location.controller, location.sequence);
+  find(
+    location: Pick<
+      ygopro.CardLocation,
+      "zone" | "controller" | "sequence" | "is_overlay" | "overlay_sequence"
+    >,
+  ): CardType | undefined {
+    return this.at(
+      location.zone,
+      location.controller,
+      location.sequence,
+      location.is_overlay ? location.overlay_sequence : undefined,
+    );
   }
   // 获取特定位置下的所有超量素材
   findOverlay(
@@ -91,6 +104,16 @@ export class CardStore implements NeosStore {
         card.location.sequence === sequence &&
         card.location.is_overlay,
     );
+  }
+  clearRelations(uuid: string): void {
+    for (const card of this.inner) {
+      if (card.uuid === uuid || card.equipTarget === uuid)
+        card.equipTarget = undefined;
+      card.effectTargets =
+        card.uuid === uuid
+          ? []
+          : card.effectTargets?.filter((target) => target !== uuid);
+    }
   }
   reset(): void {
     this.inner = [];

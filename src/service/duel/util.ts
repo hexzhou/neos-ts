@@ -7,7 +7,7 @@ import { Context } from "@/container";
 
 export function isAllOnField(locations: ygopro.CardLocation[]): boolean {
   const isOnField = (location: ygopro.CardLocation) => {
-    return [MZONE, SZONE, HAND].includes(location.zone);
+    return !location.is_overlay && [MZONE, SZONE, HAND].includes(location.zone);
   };
 
   return locations.find((location) => !isOnField(location)) === undefined;

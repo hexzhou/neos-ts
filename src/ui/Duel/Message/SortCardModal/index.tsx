@@ -23,6 +23,7 @@ import { proxy, useSnapshot } from "valtio";
 import { sendSortCardResponse } from "@/api";
 import { CardMeta, getCardImgUrl } from "@/api/cards";
 import { getUIContainer } from "@/container/compat";
+import { createDuelDialog } from "@/stores/duelDialogs";
 
 import { NeosModal } from "../NeosModal";
 
@@ -39,7 +40,7 @@ const defaultProps = {
   options: [],
 };
 
-const localStore = proxy<SortCardModalProps>(defaultProps);
+const localStore = proxy<SortCardModalProps>({ ...defaultProps });
 
 export const SortCardModal = () => {
   const container = getUIContainer();
@@ -128,12 +129,14 @@ const SortableItem = (props: { id: number; meta: CardMeta }) => {
   );
 };
 
-let rs: (arg?: any) => void = () => {};
+const dialog = createDuelDialog(() => {
+  localStore.isOpen = false;
+  localStore.options = [];
+}, undefined);
+const rs = dialog.finish;
 
 export const displaySortCardModal = async (options: SortOption[]) => {
   localStore.options = options;
   localStore.isOpen = true;
-  await new Promise<void>((resolve) => (rs = resolve));
-  localStore.isOpen = false;
-  localStore.options = [];
+  await dialog.wait();
 };

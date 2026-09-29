@@ -3,19 +3,21 @@ import { Button } from "antd";
 import React from "react";
 import { proxy, useSnapshot } from "valtio";
 
-import { sendSelectPositionResponse, ygopro } from "@/api";
+import { getCardImgUrl, sendSelectPositionResponse, ygopro } from "@/api";
 import { getUIContainer } from "@/container/compat";
+import { createDuelDialog } from "@/stores/duelDialogs";
 
 import { NeosModal } from "../NeosModal";
 import styles from "./index.module.scss";
 
 interface PositionModalProps {
   isOpen: boolean;
+  code: number;
   positions: ygopro.CardPosition[];
 }
-const defaultProps = { isOpen: false, positions: [] };
+const defaultProps = { isOpen: false, positions: [], code: 0 };
 
-const localStore = proxy<PositionModalProps>(defaultProps);
+const localStore = proxy<PositionModalProps>({ ...defaultProps });
 
 // Define a type for translations with an index signature (I18N)
 interface Translations {
@@ -93,7 +95,7 @@ const translations: Translations = {
 
 export const PositionModal = () => {
   const container = getUIContainer();
-  const { isOpen, positions } = useSnapshot(localStore);
+  const { isOpen, positions, code } = useSnapshot(localStore);
 
   const onSummit = (position: ygopro.CardPosition) => {
     sendSelectPositionResponse(container.conn, position);
@@ -102,7 +104,7 @@ export const PositionModal = () => {
 
   return (
     <NeosModal
-      title={translations[language].Title}
+      title={(translations[language] ?? translations.cn).Title}
       open={isOpen}
       centered
       footer={<></>}
@@ -114,9 +116,25 @@ export const PositionModal = () => {
             data-testid="duel-position-option"
             data-position={ygopro.CardPosition[position]}
             data-position-value={position}
+            aria-label={cardPosition(position)}
+            title={cardPosition(position)}
             onClick={() => onSummit(position)}
           >
-            {cardPosition(position)}
+            <img
+              src={getCardImgUrl(
+                code,
+                position === ygopro.CardPosition.FACEDOWN_ATTACK ||
+                  position === ygopro.CardPosition.FACEDOWN_DEFENSE,
+              )}
+              alt={cardPosition(position)}
+              draggable={false}
+              className={
+                position === ygopro.CardPosition.FACEUP_DEFENSE ||
+                position === ygopro.CardPosition.FACEDOWN_DEFENSE
+                  ? styles.defense
+                  : undefined
+              }
+            />
           </Button>
         ))}
       </div>
@@ -126,7 +144,7 @@ export const PositionModal = () => {
 
 // Function to get card position based on language
 function cardPosition(position: ygopro.CardPosition): string {
-  const messages = translations[language];
+  const messages = translations[language] ?? translations.cn;
 
   switch (position) {
     case ygopro.CardPosition.FACEUP_ATTACK: {
@@ -147,14 +165,19 @@ function cardPosition(position: ygopro.CardPosition): string {
   }
 }
 
-let rs: (arg?: any) => void = () => {};
+const dialog = createDuelDialog(() => {
+  localStore.isOpen = false;
+  localStore.positions = [];
+  localStore.code = 0;
+}, undefined);
+const rs = dialog.finish;
 
 export const displayPositionModal = async (
   positions: ygopro.CardPosition[],
+  code = 0,
 ) => {
+  localStore.code = code;
   localStore.positions = positions;
   localStore.isOpen = true;
-  await new Promise<void>((resolve) => (rs = resolve));
-  localStore.isOpen = false;
-  localStore.positions = [];
+  await dialog.wait();
 };

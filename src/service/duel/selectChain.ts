@@ -33,8 +33,11 @@ export default async (container: Container, selectChain: MsgSelectChain) => {
         // 直接回答
         handle_flag = 0;
       } else {
-        if (chainSetting === ChainSetting.CHAIN_ALL) {
-          // 配置了全部连锁，则处理
+        if (
+          chainSetting === ChainSetting.CHAIN_ALL ||
+          chainSetting === ChainSetting.CHAIN_AVAILABLE
+        ) {
+          // 全部连锁或有可发动效果时询问，不依赖关键时点计数
           if (chains.length === 1) {
             handle_flag = 1;
           } else {
@@ -96,6 +99,7 @@ export default async (container: Container, selectChain: MsgSelectChain) => {
         context,
         chains,
       );
+      if (container.conn.cancelled) return;
       await displaySelectActionsModal({
         isChain: true,
         cancelable: true,
@@ -121,6 +125,7 @@ export default async (container: Container, selectChain: MsgSelectChain) => {
         context,
         chains,
       );
+      if (container.conn.cancelled) return;
       await displaySelectActionsModal({
         isChain: true,
         cancelable: false,

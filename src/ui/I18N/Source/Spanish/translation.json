@@ -159,6 +159,10 @@
     "PleaseEnterChatContent": "Por favor, ingresa el contenido del chat"
   },
   "MatchModal": {
+    "CustomServer": "Servidor personalizado",
+    "ServerAddress": "Dirección del servidor",
+    "ServerAddressPlaceholder": "Ej.: wss://example.com:443",
+    "CustomServerHint": "Introduce host:puerto o una dirección wss:// completa. La última entrada se guarda automáticamente.",
     "PleaseEnterCustomRoomInformation": "Por favor, ingresa la información de la sala personalizada",
     "Server": "Servidor",
     "KoishiServer": "Servidor Koishi",

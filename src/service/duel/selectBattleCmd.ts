@@ -51,6 +51,8 @@ export default async (
       }
     });
   });
+  context.matStore.clearPhaseCommands();
+  context.matStore.phase.command = { type: "battle", player };
   context.matStore.phase.enableM2 = selectBattleCmd.enable_m2;
   context.matStore.phase.enableEp = selectBattleCmd.enable_ep;
 };

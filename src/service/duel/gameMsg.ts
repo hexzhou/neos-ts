@@ -82,11 +82,31 @@ export default async function handleGameMsg(
   pb: ygopro.YgoStocMsg,
 ): Promise<void> {
   const msg = pb.stoc_game_msg;
+  if (
+    ActiveList.includes(msg.gameMsg) ||
+    [
+      "start",
+      "new_turn",
+      "new_phase",
+      "move",
+      "chaining",
+      "win",
+      "wait",
+      "reload_field",
+    ].includes(msg.gameMsg)
+  )
+    container.context.matStore.clearPhaseCommands();
+  if (
+    !ActiveList.includes(msg.gameMsg) &&
+    !["hint", "retry", "waiting"].includes(msg.gameMsg)
+  ) {
+    container.context.matStore.stopClock();
+  }
 
   if (ActiveList.includes(msg.gameMsg)) {
     showWaiting(false);
 
-    if (replayStore.isReplay) return;
+    if (replayStore.isReplay || container.conn.isClosed()) return;
   }
 
   switch (msg.gameMsg) {
@@ -106,7 +126,7 @@ export default async function handleGameMsg(
       break;
     }
     case "new_phase": {
-      onMsgNewPhase(container, msg.new_phase);
+      await onMsgNewPhase(container, msg.new_phase);
 
       break;
     }
