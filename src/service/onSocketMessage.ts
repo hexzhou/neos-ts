@@ -31,22 +31,27 @@ import { handleWaitingSide } from "./side/waitingSide";
  *
  * */
 
-let animation: Promise<void> = Promise.resolve();
+const queues = new WeakMap<Container, Promise<void>>();
 
 export default async function handleSocketMessage(
   container: Container,
   e: MessageEvent,
 ) {
   // 确保按序执行
-  animation = animation.then(() => _handle(container, e));
-  await animation;
+  const next = (queues.get(container) ?? Promise.resolve()).then(() =>
+    _handle(container, e),
+  );
+  queues.set(container, next);
+  await next;
 }
 
 // FIXME: 下面的所有`handler`中访问`Store`的时候都应该通过`Container`进行访问
 async function _handle(container: Container, e: MessageEvent) {
+  if (container.conn.cancelled) return;
   const packets = YgoProPacket.deserialize(e.data);
 
   for (const packet of packets) {
+    if (container.conn.cancelled) return;
     const pb = adaptStoc(packet);
     const isReplayGameMsg = replayStore.isReplay && pb.msg === "stoc_game_msg";
     const replayGameMsg = isReplayGameMsg

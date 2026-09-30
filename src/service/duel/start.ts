@@ -16,6 +16,7 @@ export default async (
   start: ygopro.StocGameMessage.MsgStart,
 ) => {
   const context = container.context;
+  context.matStore.deckReserved = false;
   // 先初始化`matStore`
   context.matStore.selfType = start.playerType;
 

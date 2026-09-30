@@ -4,6 +4,7 @@ import { proxy, useSnapshot } from "valtio";
 
 import { ygopro } from "@/api";
 import { cardStore, CardType } from "@/stores";
+import { registerDuelDialogReset } from "@/stores/duelDialogs";
 import { YgoCard } from "@/ui/Shared";
 
 import { showCardModal } from "../CardModal";
@@ -21,20 +22,33 @@ const defaultStore = {
   isZone: true,
 };
 
-const store = proxy(defaultStore);
+const store = proxy({ ...defaultStore });
+registerDuelDialogReset(() => Object.assign(store, defaultStore));
 
 export const CardListModal = () => {
   const { zone, monster, isOpen, isZone, controller } = useSnapshot(store);
-  let cardList: CardType[] = [];
+  const { inner } = useSnapshot(cardStore);
+  let cardList: readonly CardType[] = [];
 
   if (isZone) {
-    cardList = cardStore.at(zone, controller);
+    const zoneCards = (inner as readonly CardType[]).filter(
+      (card) =>
+        card.location.zone === zone &&
+        card.location.controller === controller &&
+        !card.location.is_overlay,
+    );
+    // 与 MDPRO3 一致：墓地从上到下展示序号由大到小的卡片。
+    if (zone === ygopro.CardZone.GRAVE)
+      zoneCards.sort((a, b) => b.location.sequence - a.location.sequence);
+    cardList = zoneCards;
   } else {
     // 看超量素材
-    cardList = cardStore.findOverlay(
-      monster.location.zone,
-      monster.location.controller,
-      monster.location.sequence,
+    cardList = (inner as readonly CardType[]).filter(
+      (card) =>
+        card.location.zone === monster.location.zone &&
+        card.location.controller === monster.location.controller &&
+        card.location.sequence === monster.location.sequence &&
+        card.location.is_overlay,
     );
   }
 
@@ -44,6 +58,8 @@ export const CardListModal = () => {
 
   return (
     <Drawer
+      rootClassName="duel-side-drawer duel-translucent-drawer"
+      data-testid="duel-card-list-drawer"
       open={isOpen}
       onClose={handleOkOrCancel}
       // headerStyle={{ display: "none" }}
@@ -75,6 +91,6 @@ export const displayCardListModal = ({
   store.isOpen = true;
   store.isZone = isZone ?? false;
   monster && (store.monster = monster);
-  zone && (store.zone = zone);
+  zone !== undefined && (store.zone = zone);
   controller !== undefined && (store.controller = controller);
 };

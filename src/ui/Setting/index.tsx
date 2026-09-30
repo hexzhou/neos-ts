@@ -3,14 +3,13 @@ import {
   PlayCircleOutlined,
   TranslationOutlined,
 } from "@ant-design/icons";
-import { ConfigProvider, Modal, Tabs, TabsProps } from "antd";
-import zhCN from "antd/locale/zh_CN";
+import { Modal, Tabs, TabsProps } from "antd";
 import React from "react";
 import { render, unmountComponentAtNode } from "react-dom";
 import { useTranslation } from "react-i18next";
 
 import { I18NSelector } from "../I18N";
-import { theme } from "../theme";
+import { NeosConfigProvider } from "../NeosConfigProvider";
 import { AnimationSetting } from "./Animation";
 import { AudioSetting } from "./Audio";
 
@@ -70,11 +69,11 @@ export function openSettingPanel(props: SettingProps) {
     }
   };
   render(
-    <ConfigProvider theme={theme} locale={zhCN}>
+    <NeosConfigProvider>
       <Modal open centered footer={null} onCancel={destroy} closeIcon={null}>
         <Setting {...props} />
       </Modal>
-    </ConfigProvider>,
+    </NeosConfigProvider>,
     div,
   );
 }

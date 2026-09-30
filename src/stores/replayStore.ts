@@ -33,6 +33,7 @@ export const ReplayAdvanceFlag = {
   CONFIRM_CARDS: 1 << 25,
   UPDATE_COUNTER: 1 << 26,
   UPDATE_DATA: 1 << 27,
+  DECK: 1 << 28,
 } as const;
 
 export const DEFAULT_REPLAY_ADVANCE_MASK =
@@ -62,7 +63,8 @@ export const DEFAULT_REPLAY_ADVANCE_MASK =
   ReplayAdvanceFlag.SHUFFLE_SET_CARD |
   ReplayAdvanceFlag.FIELD_DISABLED |
   ReplayAdvanceFlag.CONFIRM_CARDS |
-  ReplayAdvanceFlag.UPDATE_COUNTER;
+  ReplayAdvanceFlag.UPDATE_COUNTER |
+  ReplayAdvanceFlag.DECK;
 
 const GAME_MSG_ADVANCE_FLAGS: Record<string, number> = {
   start: ReplayAdvanceFlag.START,
@@ -93,6 +95,7 @@ const GAME_MSG_ADVANCE_FLAGS: Record<string, number> = {
   confirm_cards: ReplayAdvanceFlag.CONFIRM_CARDS,
   update_counter: ReplayAdvanceFlag.UPDATE_COUNTER,
   update_data: ReplayAdvanceFlag.UPDATE_DATA,
+  shuffle_deck: ReplayAdvanceFlag.DECK,
 };
 
 // 对局中每一次状态改变的记录
@@ -108,6 +111,36 @@ interface ReplayPacket {
 
 // 保存对局回放数据的`Store`
 class ReplayStore implements NeosStore {
+  private recordingFilename?: string;
+  recordedCount = 0;
+  lastReplay: { buffers: ArrayBuffer[]; filename: string } | null = null;
+  archive() {
+    if (!this.isReplay && this.inner.length) {
+      this.recordingFilename ??= `${new Date()
+        .toISOString()
+        .replace(/[:.]/g, "-")}.neos.yrp3d`;
+      this.lastReplay = ref({
+        buffers: this.encode(),
+        filename: this.recordingFilename,
+      });
+    }
+  }
+
+  download() {
+    this.archive();
+    if (!this.lastReplay) return;
+    const url = URL.createObjectURL(
+      new Blob(this.lastReplay.buffers, { type: "application/octet-stream" }),
+    );
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = this.lastReplay.filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   isReplay: boolean = false; // 是否进入了回放模式
   paused: boolean = false;
   waiting: boolean = false;
@@ -127,6 +160,7 @@ class ReplayStore implements NeosStore {
   }
 
   record(ygoPacket: YgoProPacket) {
+    this.recordedCount += 1;
     this.inner.push({
       packet: ygoPacket2replayPacket(ygoPacket),
     });
@@ -193,6 +227,9 @@ class ReplayStore implements NeosStore {
     return this.inner.map((spot) => spot.packet).map(replayPacket2arrayBuffer);
   }
   reset() {
+    this.archive();
+    this.recordedCount = 0;
+    this.recordingFilename = undefined;
     this.releaseAll();
     this.inner.splice(0);
     this.isReplay = false;

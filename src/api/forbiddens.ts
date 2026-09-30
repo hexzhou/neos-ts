@@ -1,5 +1,7 @@
 import { isNil } from "lodash-es";
 
+import { pfetch } from "@/infra/pfetch";
+
 import { CardMeta } from "./cards";
 
 class Forbidden {
@@ -7,7 +9,7 @@ class Forbidden {
   public time: string = "?";
 
   public async init(lflist: string): Promise<void> {
-    const text = await (await fetch(lflist)).text();
+    const text = await (await pfetch(lflist)).text();
     const { time, forbiddens } = this.extractForbiddensFromText(text);
     this.time = time;
     this.setForbiddens(forbiddens);

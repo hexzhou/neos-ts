@@ -26,6 +26,8 @@ import {
   InteractType,
   isCardDisabled,
 } from "@/stores";
+import { fieldInspection } from "@/stores/fieldInspection";
+import { fieldSelection, toggleFieldSelection } from "@/stores/fieldSelection";
 import { showCardModal as displayCardModal } from "@/ui/Duel/Message/CardModal";
 import { YgoCard } from "@/ui/Shared";
 
@@ -40,13 +42,19 @@ import {
   interactTypeToIcon,
   interactTypeToString,
 } from "../../utils";
+import { FieldCardInfo } from "./FieldCardInfo";
+import { LinkArrows } from "./FieldSigns";
 import styles from "./index.module.scss";
 import {
   attack,
   type AttackOptions,
+  confirm,
+  type ConfirmOptions,
   focus,
   move,
   type MoveOptions,
+  shuffle,
+  type ShuffleOptions,
 } from "./springs";
 import type { SpringApiProps } from "./springs/types";
 
@@ -56,6 +64,7 @@ export const Card: React.FC<{ idx: number }> = React.memo(({ idx }) => {
   const container = getUIContainer();
   const card = cardStore.inner[idx];
   const snap = useSnapshot(card);
+  const selecting = useSnapshot(fieldSelection).active;
 
   const [spring, api] = useSpring<SpringApiProps>(
     () =>
@@ -81,8 +90,21 @@ export const Card: React.FC<{ idx: number }> = React.memo(({ idx }) => {
     addToAnimation(() => move({ card, api }));
   }, []);
 
+  const graveSequence =
+    snap.location.zone === GRAVE && !snap.location.is_overlay
+      ? snap.location.sequence
+      : undefined;
+  // 其他卡进出墓地时只更新叠放层级，避免重播剩余卡片的移动动画。
+  useEffect(() => {
+    if (graveSequence !== undefined) api.set({ zIndex: graveSequence });
+  }, [api, graveSequence]);
+
   const [glowing, setGrowing] = useState(false);
   const [classFocus, setClassFocus] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [shuffling, setShuffling] = useState(false);
+  const [overlayAnimation, setOverlayAnimation] =
+    useState<MoveOptions["overlayAnimation"]>();
 
   // >>> 动画 >>>
   /** 动画序列的promise */
@@ -107,7 +129,14 @@ export const Card: React.FC<{ idx: number }> = React.memo(({ idx }) => {
 
   useEffect(() => {
     register(Task.Move, async (options?: MoveOptions) => {
-      await addToAnimation(() => move({ card, api, options }));
+      await addToAnimation(async () => {
+        setOverlayAnimation(options?.overlayAnimation);
+        try {
+          await move({ card, api, options });
+        } finally {
+          setOverlayAnimation(undefined);
+        }
+      });
     });
 
     register(Task.Focus, async () => {
@@ -115,8 +144,32 @@ export const Card: React.FC<{ idx: number }> = React.memo(({ idx }) => {
       await focus({ card, api });
     });
 
+    register(Task.Confirm, async (options?: ConfirmOptions) => {
+      await addToAnimation(async () => {
+        if (options?.signal?.aborted) return;
+        setConfirming(true);
+        try {
+          await confirm({ card, api, options });
+        } finally {
+          setConfirming(false);
+        }
+      });
+    });
+
     register(Task.Attack, async (options: AttackOptions) => {
       await addToAnimation(() => attack({ card, api, options }));
+    });
+
+    register(Task.Shuffle, async (options?: ShuffleOptions) => {
+      await addToAnimation(async () => {
+        if (options?.signal?.aborted) return;
+        setShuffling(true);
+        try {
+          await shuffle({ card, api, options });
+        } finally {
+          setShuffling(false);
+        }
+      });
     });
   }, []);
 
@@ -255,7 +308,8 @@ export const Card: React.FC<{ idx: number }> = React.memo(({ idx }) => {
                 card,
               })),
           });
-          tmpCard = option[0].card! as any; // 一定会有的，有输入则定有输出
+          if (!option.length || container.conn.cancelled) return;
+          tmpCard = option[0].card! as any;
         }
         // 选择发动哪个效果
         handleEffectActivation(
@@ -280,6 +334,8 @@ export const Card: React.FC<{ idx: number }> = React.memo(({ idx }) => {
   };
 
   const onClick = () => {
+    if (toggleFieldSelection(card)) return;
+    fieldInspection.pinned = card.uuid;
     const onCardClick = (card: CardType) => {
       const selectInfo = card.selectInfo;
       if (selectInfo.selectable || selectInfo.selected) {
@@ -362,6 +418,9 @@ export const Card: React.FC<{ idx: number }> = React.memo(({ idx }) => {
       data-card-position={ygopro.CardPosition[location.position]}
       data-card-position-value={location.position}
       data-card-is-overlay={location.is_overlay}
+      data-card-overlay-animation={overlayAnimation ?? "none"}
+      data-card-confirming={confirming}
+      data-card-shuffling={shuffling}
       data-card-overlay-sequence={location.overlay_sequence}
       data-card-is-token={snap.isToken}
       data-card-status={snap.status}
@@ -377,6 +436,10 @@ export const Card: React.FC<{ idx: number }> = React.memo(({ idx }) => {
         /* 有可操作选项或者已被选中*/
         [styles.glowing]: glowing || snap.selectInfo.selected,
         [styles.shining]: snap.selectInfo.selectable, // 可以被选中
+        [styles["confirm-opponent-hand"]]:
+          confirming &&
+          location.zone === HAND &&
+          !container.context.matStore.isMe(location.controller),
       })}
       style={
         {
@@ -394,13 +457,24 @@ export const Card: React.FC<{ idx: number }> = React.memo(({ idx }) => {
           "--focus-display": spring.focusDisplay,
           "--focus-opacity": spring.focusOpacity,
           opacity: spring.opacity,
+          visibility:
+            location.is_overlay && !overlayAnimation ? "hidden" : "visible",
+          pointerEvents: location.is_overlay ? "none" : undefined,
         } as any as CSSProperties
       }
       onClick={onClick}
+      onMouseEnter={() => {
+        fieldInspection.hovered = card.uuid;
+      }}
+      onMouseLeave={() => {
+        if (fieldInspection.hovered === card.uuid)
+          fieldInspection.hovered = null;
+      }}
     >
       <div className={styles.focus} />
       <div className={styles.shadow} />
       <Dropdown
+        disabled={selecting}
         menu={dropdownMenu}
         placement="top"
         overlayClassName={classnames(styles.dropdown, {
@@ -422,6 +496,17 @@ export const Card: React.FC<{ idx: number }> = React.memo(({ idx }) => {
           <YgoCard className={styles.back} isBack />
         </div>
       </Dropdown>
+      <LinkArrows card={snap as CardType} />
+      <animated.div
+        className={styles["field-info-anchor"]}
+        style={{
+          transform: spring.rz.to(
+            (rz) => `translate(-50%, -50%) rotateZ(${-rz}deg) translateZ(2px)`,
+          ),
+        }}
+      >
+        <FieldCardInfo card={snap as CardType} />
+      </animated.div>
       {snap.targeted ? <div className={styles.streamer} /> : <></>}
     </animated.div>
   );
@@ -485,4 +570,6 @@ const call =
 
 export const callCardMove = call<MoveOptions>(Task.Move);
 export const callCardFocus = call(Task.Focus);
+export const callCardConfirm = call<ConfirmOptions>(Task.Confirm);
+export const callCardShuffle = call<ShuffleOptions>(Task.Shuffle);
 export const callCardAttack = call<AttackOptions>(Task.Attack);

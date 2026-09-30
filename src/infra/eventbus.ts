@@ -6,6 +6,8 @@ const eventEmitter = new EventEmitter();
 export enum Task {
   Move = "move", // 卡片移动
   Focus = "focus", // 卡片聚焦
+  Confirm = "confirm", // 公开卡片
+  Shuffle = "shuffle", // 卡组洗牌
   Attack = "attack", // 卡片攻击
   Mora = "mora", // 猜拳
   Tp = "tp", // 选边

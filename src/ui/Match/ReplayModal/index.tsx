@@ -41,7 +41,15 @@ export const ReplayModal: React.FC = () => {
     } else {
       setLoading(true);
 
-      await launchReplay(replay);
+      try {
+        await launchReplay(replay);
+      } catch (error) {
+        message.error(
+          error instanceof Error ? error.message : "录像加载失败，请重试",
+        );
+      } finally {
+        setLoading(false);
+      }
     }
   };
 

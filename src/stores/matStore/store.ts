@@ -3,7 +3,9 @@ import { proxy } from "valtio";
 
 import { ygopro } from "@/api";
 
+import { registerDuelDialogReset } from "../duelDialogs";
 import { type NeosStore } from "../shared";
+import { remainingTime } from "./clock";
 import { ChainSetting, InitInfo, MatState } from "./types";
 
 /**
@@ -53,16 +55,30 @@ const initInfo: MatState["initInfo"] = proxy({
   },
 });
 
-const initialState: Omit<MatState, "reset"> = {
+const initialState: Omit<MatState, "reset" | "clearPhaseCommands"> = {
   chains: [],
   timeLimits: {
+    activePlayer: null,
+    receivedAt: 0,
+    limit: 0,
     // 时间限制
     me: -1,
     op: -1,
     of: (controller: number) => matStore.timeLimits[getWhom(controller)],
     set: (controller: number, time: number) => {
-      matStore.timeLimits[getWhom(controller)] = time;
+      matStore.stopClock();
+      matStore.timeLimits[getWhom(controller)] = Math.max(0, time);
+      matStore.timeLimits.limit = Math.max(matStore.timeLimits.limit, time);
+      matStore.timeLimits.activePlayer = controller;
+      matStore.timeLimits.receivedAt = Date.now();
     },
+  },
+  stopClock: () => {
+    const clock = matStore.timeLimits;
+    if (clock.activePlayer === null) return;
+    const who = getWhom(clock.activePlayer);
+    clock[who] = remainingTime(clock[who], clock.receivedAt, Date.now());
+    clock.activePlayer = null;
   },
   initInfo,
   selfType: ygopro.StocTypeChange.SelfType.UNKNOWN,
@@ -70,6 +86,7 @@ const initialState: Omit<MatState, "reset"> = {
   currentPlayer: -1,
   phase: {
     currentPhase: ygopro.StocGameMessage.MsgNewPhase.PhaseType.UNKNOWN,
+    command: null,
     enableBp: false, // 允许进入战斗阶段
     enableM2: false, // 允许进入M2阶段
     enableEp: false, // 允许回合结束
@@ -91,6 +108,7 @@ const initialState: Omit<MatState, "reset"> = {
     selectedList: [],
   },
   chainSetting: ChainSetting.CHAIN_SMART,
+  deckReserved: false,
   duelEnd: false,
   // methods
   isMe,
@@ -99,8 +117,10 @@ const initialState: Omit<MatState, "reset"> = {
 };
 
 export class MatStore implements MatState, NeosStore {
+  stopClock = initialState.stopClock;
   chains = initialState.chains;
   chainSetting = initialState.chainSetting;
+  deckReserved = initialState.deckReserved;
   timeLimits = initialState.timeLimits;
   initInfo = initialState.initInfo;
   selfType = initialState.selfType;
@@ -117,10 +137,20 @@ export class MatStore implements MatState, NeosStore {
 
   // methods
   isMe = initialState.isMe;
+  clearPhaseCommands(): void {
+    this.phase.command = null;
+    this.phase.enableBp = false;
+    this.phase.enableM2 = false;
+    this.phase.enableEp = false;
+  }
   reset(): void {
     this.chains = [];
+    this.deckReserved = false;
     this.timeLimits.me = -1;
     this.timeLimits.op = -1;
+    this.timeLimits.activePlayer = null;
+    this.timeLimits.receivedAt = 0;
+    this.timeLimits.limit = 0;
     this.initInfo.me = defaultInitInfo;
     this.initInfo.op = defaultInitInfo;
     this.selfType = ygopro.StocTypeChange.SelfType.UNKNOWN;
@@ -128,6 +158,7 @@ export class MatStore implements MatState, NeosStore {
     this.currentPlayer = -1;
     this.phase = {
       currentPhase: ygopro.StocGameMessage.MsgNewPhase.PhaseType.UNKNOWN,
+      command: null,
       enableBp: false, // 允许进入战斗阶段
       enableM2: false, // 允许进入M2阶段
       enableEp: false, // 允许回合结束
@@ -153,6 +184,7 @@ export class MatStore implements MatState, NeosStore {
  * 具体介绍可以点进`MatState`去看
  */
 export const matStore = proxy<MatStore>(new MatStore());
+registerDuelDialogReset(() => matStore.clearPhaseCommands());
 
 // @ts-ignore 挂到全局，便于调试
 window.matStore = matStore;

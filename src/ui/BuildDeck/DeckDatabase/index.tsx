@@ -5,7 +5,7 @@ import {
   SortAscendingOutlined,
   SwapOutlined,
 } from "@ant-design/icons";
-import { App, Button, Dropdown, Input, Space } from "antd";
+import { App, Button, Dropdown, Input } from "antd";
 import { MenuProps } from "antd/lib";
 import { isEqual } from "lodash-es";
 import { OverlayScrollbarsComponentRef } from "overlayscrollbars-react";
@@ -124,7 +124,7 @@ export const DeckDatabase: React.FC = () => {
   const { t: i18n } = useTranslation("BuildDeck");
   return (
     <div className={styles.container} ref={dropRef}>
-      <Space className={styles.title} direction="horizontal">
+      <div className={`${styles.title} ${styles["database-title"]}`}>
         <Input
           placeholder={i18n("KeywordsPlaceholder")}
           variant="borderless"
@@ -139,16 +139,14 @@ export const DeckDatabase: React.FC = () => {
           onChange={(e) => setSearchWord(e.target.value)}
           onKeyUp={(e) => e.key === "Enter" && handleSearch()}
           allowClear
-          style={{ width: "250%" }}
         />
         <Button
-          style={{ marginRight: "1rem" }}
           icon={<SwapOutlined />}
           onClick={() => setShowMdproDecks(!showMdproDecks)}
         >
           {showMdproDecks ? i18n("CardDatabase") : i18n("MDProOnlineDeck")}
         </Button>
-      </Space>
+      </div>
       <div className={styles["select-btns"]}>
         {showMdproDecks ? (
           <Select

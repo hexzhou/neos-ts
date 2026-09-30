@@ -11,6 +11,8 @@
     filter: brightness(0.9);
   }
   .cardname {
+    z-index: 1;
+    pointer-events: none;
     font-size: 12px;
     position: absolute;
     padding: 5px;

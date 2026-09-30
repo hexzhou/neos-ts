@@ -4,6 +4,9 @@ import React from "react";
 import { proxy, useSnapshot } from "valtio";
 
 import { type CardMeta, fetchStrings, Region } from "@/api";
+import { quoteCardName } from "@/api/cardText";
+import { cardStore, type CardType, hasIncompleteSummon } from "@/stores";
+import { registerDuelDialogReset } from "@/stores/duelDialogs";
 import { YgoCard } from "@/ui/Shared";
 
 import {
@@ -15,8 +18,6 @@ import {
 } from "../../../../common";
 import { Desc } from "./Desc";
 import styles from "./index.module.scss";
-
-const CARD_WIDTH = "8.75rem";
 
 const defaultStore = {
   isOpen: false,
@@ -34,12 +35,19 @@ const defaultStore = {
     effectCode?: number;
   }[],
   counters: {} as Record<number, number>,
+  cardUuid: null as string | null,
 };
 
-const store = proxy(defaultStore);
+const store = proxy({ ...defaultStore });
+registerDuelDialogReset(() => Object.assign(store, defaultStore));
 
 export const CardModal = () => {
   const snap = useSnapshot(store);
+  const cards = useSnapshot(cardStore);
+  const { cardUuid } = snap;
+  const liveCard = cards.inner.find((card) => card.uuid === cardUuid);
+  const summonIncomplete =
+    liveCard && hasIncompleteSummon(liveCard as CardType);
 
   const { isOpen, meta, counters } = snap;
 
@@ -57,10 +65,10 @@ export const CardModal = () => {
       open={isOpen}
       placement="left"
       onClose={() => (store.isOpen = false)}
-      rootClassName={styles.root}
+      rootClassName="duel-translucent-drawer"
       className={styles.drawer}
       mask={false}
-      title={name}
+      title={quoteCardName(name)}
       closeIcon={<LeftOutlined />}
       width={350}
     >
@@ -69,17 +77,9 @@ export const CardModal = () => {
         data-testid="duel-card-detail"
         data-card-code={meta?.id}
       >
-        <Space
-          align="start"
-          size={18}
-          style={{ position: "relative", display: "flex" }}
-        >
-          <YgoCard
-            code={meta?.id}
-            width={CARD_WIDTH}
-            style={{ borderRadius: 4 }}
-          />
-          <Space direction="vertical" className={styles.info}>
+        <div className={styles.summary}>
+          <YgoCard code={meta?.id} width="100%" style={{ borderRadius: 4 }} />
+          <div className={styles.info}>
             <AtkLine
               atk={atk}
               def={types.includes(TYPE_LINK) ? undefined : def}
@@ -88,9 +88,17 @@ export const CardModal = () => {
             <AttLine types={types} race={race} attribute={attribute} />
             {/* TODO: 只有怪兽卡需要展示攻击防御 */}
             {/* TODO: 展示星级/LINK数 */}
-          </Space>
-        </Space>
-        <Divider style={{ margin: "0.875rem 0" }}></Divider>
+          </div>
+        </div>
+        <Divider style={{ margin: "0.625rem 0" }}></Divider>
+        {summonIncomplete && (
+          <p
+            className={styles.summonIncomplete}
+            data-testid="card-summon-incomplete"
+          >
+            未正规登场
+          </p>
+        )}
         <Desc desc={desc} />
       </div>
     </Drawer>
@@ -116,8 +124,12 @@ const AttLine = (props: {
     .join("/");
   return (
     <div className={styles.attline}>
-      {attribute && <Tag>{attribute}</Tag>}
-      {race && <Tag>{race}</Tag>}
+      {(attribute || race) && (
+        <div className={styles.attributeRow}>
+          {attribute && <Tag>{attribute}</Tag>}
+          {race && <Tag>{race}</Tag>}
+        </div>
+      )}
       {types && <Tag>{types}</Tag>}
     </div>
   );
@@ -150,6 +162,8 @@ const AtkLine = (props: { atk?: number; def?: number }) => (
 );
 
 const CounterLine = (props: { counters: { [type: number]: number } }) => {
+  if (!Object.values(props.counters).some((count) => count > 0)) return null;
+
   return (
     <Space size={10} className={styles.counterLine} direction="vertical">
       {Object.entries(props.counters).map(
@@ -176,11 +190,18 @@ const CounterLine = (props: { counters: { [type: number]: number } }) => {
 };
 
 export const showCardModal = (
-  card: Partial<Pick<typeof store, "meta" | "counters">>,
+  card: Partial<Pick<typeof store, "meta" | "counters">> & {
+    uuid?: string;
+    location?: Parameters<typeof cardStore.find>[0];
+  },
 ) => {
   store.isOpen = true;
   store.meta = card?.meta ?? defaultStore.meta;
   store.counters = card?.counters ?? defaultStore.counters;
+  store.cardUuid =
+    card.uuid ??
+    (card.location ? cardStore.find(card.location)?.uuid : undefined) ??
+    null;
 };
 
 export const closeCardModal = () => {

@@ -1,6 +1,8 @@
 // import "./index.scss";
 import { INTERNAL_Snapshot as Snapshot, proxy, useSnapshot } from "valtio";
 
+import { createDuelDialog } from "@/stores/duelDialogs";
+
 import { type Option, SelectCardsModal } from "../SelectCardsModal";
 
 const defaultProps = {
@@ -8,7 +10,7 @@ const defaultProps = {
   selectables: [] as Option[],
 };
 
-const localStore = proxy(defaultProps);
+const localStore = proxy({ ...defaultProps });
 
 export const SimpleSelectCardsModal: React.FC = () => {
   const { isOpen, selectables } = useSnapshot(localStore);
@@ -32,16 +34,16 @@ export const SimpleSelectCardsModal: React.FC = () => {
   );
 };
 
-let rs: (options: Snapshot<Option[]>) => void = () => {};
+const dialog = createDuelDialog<Snapshot<Option[]>>(() => {
+  localStore.isOpen = false;
+  localStore.selectables = [];
+}, []);
+const rs = dialog.finish;
 
 export const displaySimpleSelectCardsModal = async (
   args: Omit<typeof defaultProps, "isOpen">,
 ) => {
   localStore.selectables = args.selectables;
   localStore.isOpen = true;
-  const res = await new Promise<Snapshot<Option[]>>(
-    (resolve) => (rs = resolve),
-  ); // 等待在组件内resolve
-  localStore.isOpen = false;
-  return res;
+  return dialog.wait();
 };

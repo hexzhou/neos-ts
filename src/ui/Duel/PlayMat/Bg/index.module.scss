@@ -128,3 +128,8 @@
     display: none;
   }
 }
+
+.block.linked {
+  box-shadow: inset 0 0 0 2px #65deff, inset 0 0 20px #3ab2d955;
+  background-color: #287b9940;
+}

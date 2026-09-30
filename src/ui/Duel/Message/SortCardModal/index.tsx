@@ -23,6 +23,7 @@ import { proxy, useSnapshot } from "valtio";
 import { sendSortCardResponse } from "@/api";
 import { CardMeta, getCardImgUrl } from "@/api/cards";
 import { getUIContainer } from "@/container/compat";
+import { createDuelDialog } from "@/stores/duelDialogs";
 
 import { NeosModal } from "../NeosModal";
 
@@ -39,7 +40,7 @@ const defaultProps = {
   options: [],
 };
 
-const localStore = proxy<SortCardModalProps>(defaultProps);
+const localStore = proxy<SortCardModalProps>({ ...defaultProps });
 
 export const SortCardModal = () => {
   const container = getUIContainer();
@@ -53,10 +54,12 @@ export const SortCardModal = () => {
   );
 
   const onFinish = () => {
-    sendSortCardResponse(
-      container.conn,
-      items.map((item) => item.response),
-    );
+    // 协议按原卡片顺序返回排序后的位置。
+    const ranks = new Array<number>(items.length);
+    items.forEach((item, position) => {
+      ranks[item.response] = position;
+    });
+    sendSortCardResponse(container.conn, ranks);
     rs();
   };
   const onDragEnd = (event: DragEndEvent) => {
@@ -78,6 +81,7 @@ export const SortCardModal = () => {
 
   return (
     <NeosModal
+      movable
       title="请为下列卡牌排序"
       open={isOpen}
       footer={<Button onClick={onFinish}>finish</Button>}
@@ -128,12 +132,14 @@ const SortableItem = (props: { id: number; meta: CardMeta }) => {
   );
 };
 
-let rs: (arg?: any) => void = () => {};
+const dialog = createDuelDialog(() => {
+  localStore.isOpen = false;
+  localStore.options = [];
+}, undefined);
+const rs = dialog.finish;
 
 export const displaySortCardModal = async (options: SortOption[]) => {
   localStore.options = options;
   localStore.isOpen = true;
-  await new Promise<void>((resolve) => (rs = resolve));
-  localStore.isOpen = false;
-  localStore.options = [];
+  await dialog.wait();
 };

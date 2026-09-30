@@ -9,9 +9,11 @@ import {
   searchCards,
   sendSelectOptionResponse,
 } from "@/api";
+import { quoteCardName } from "@/api/cardText";
 import { isDeclarable, isToken } from "@/common";
 import { getUIContainer } from "@/container/compat";
 import { emptySearchConditions } from "@/middleware/sqlite/fts";
+import { createDuelDialog } from "@/stores/duelDialogs";
 
 import { NeosModal } from "../NeosModal";
 import styles from "./index.module.scss";
@@ -29,7 +31,7 @@ const defaultProps = {
   opcodes: [],
 };
 
-const store = proxy<Props>(defaultProps);
+const store = proxy<Props>({ ...defaultProps });
 
 export const AnnounceModal: React.FC = () => {
   const { isOpen } = useSnapshot(store);
@@ -62,6 +64,7 @@ export const AnnounceModal: React.FC = () => {
 
   return (
     <NeosModal
+      movable
       title="请输入关键字并选择宣言的卡"
       open={isOpen}
       footer={
@@ -122,7 +125,7 @@ export const AnnounceModal: React.FC = () => {
             >
               <List.Item.Meta
                 avatar={<Avatar src={getCardImgUrl(item.id)} />}
-                title={<a>{item.text.name}</a>}
+                title={<a>{quoteCardName(item.text.name)}</a>}
                 description={item.text.desc?.substring(0, MAX_DESC_LEN) + "..."}
               />
             </List.Item>
@@ -133,12 +136,14 @@ export const AnnounceModal: React.FC = () => {
   );
 };
 
-let rs: (v?: any) => void = () => {};
+const dialog = createDuelDialog(() => {
+  store.isOpen = false;
+  store.opcodes = [];
+}, undefined);
+const rs = dialog.finish;
 
 export const displayAnnounceModal = async (opcodes: number[]) => {
   store.opcodes = opcodes;
   store.isOpen = true;
-  await new Promise((resolve) => (rs = resolve));
-  store.isOpen = false;
-  store.opcodes = [];
+  await dialog.wait();
 };

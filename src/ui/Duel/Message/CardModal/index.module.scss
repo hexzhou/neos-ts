@@ -1,18 +1,15 @@
-.root {
-  :global(.ant-drawer-content-wrapper) {
-    box-shadow: none;
-  }
-}
-
 .drawer {
-  width: 20vw !important;
+  // 为卡图、标签列、内边距和滚动条保留足够宽度。
+  width: max(20vw, calc(9.5rem + 164px)) !important;
   left: 10%;
   --height: 40rem;
   top: calc((100% - var(--height)) / 2);
   height: var(--height) !important;
   position: relative;
   border-radius: 0.375rem;
-  background: #242424;
+  :global(.ant-drawer-body) {
+    scrollbar-gutter: stable;
+  }
   :global(.ant-drawer-header) {
     padding: 1rem 0;
     :global(.ant-drawer-header-title) {
@@ -26,9 +23,13 @@
   height: 100%;
 }
 
+.summonIncomplete {
+  margin: 0 0 0.5rem;
+  color: #0fff0f;
+}
+
 .atkLine,
-.counterLine
-{
+.counterLine {
   .title,
   .number {
     font-family: var(--theme-font);
@@ -41,12 +42,33 @@
 
 .attline {
   display: flex;
-  flex-wrap: wrap;
-  row-gap: 0.625rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.375rem;
+
+  :global(.ant-tag) {
+    margin-inline-end: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+.attributeRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: minmax(0, 8.75rem) minmax(100px, 1fr);
+  align-items: start;
+  gap: 0.75rem;
 }
 
 .info {
-  justify-content: space-between;
-  position: relative;
-  height: 15rem; // TODO - fix this
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
 }

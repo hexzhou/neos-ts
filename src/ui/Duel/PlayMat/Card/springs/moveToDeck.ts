@@ -1,5 +1,5 @@
 import { ygopro } from "@/api";
-import { isMe } from "@/stores";
+import { isMe, matStore } from "@/stores";
 
 import { matConfig } from "../../css";
 import type { MoveFunc } from "./types";
@@ -36,13 +36,20 @@ export const moveToDeck: MoveFunc = async (props) => {
   let rz = zone === EXTRA ? DECK_ROTATE_Z : -DECK_ROTATE_Z;
   rz += isMe(controller) ? 0 : 180;
   const z = sequence;
+  const faceup =
+    (zone === DECK && matStore.deckReserved) ||
+    [
+      ygopro.CardPosition.FACEUP,
+      ygopro.CardPosition.FACEUP_ATTACK,
+      ygopro.CardPosition.FACEUP_DEFENSE,
+    ].includes(location.position);
 
   await asyncStart(api)({
     x,
     y,
     z,
     rz,
-    ry: isMe(controller) ? (zone === DECK ? 180 : 0) : 180,
+    ry: faceup ? 0 : 180,
     zIndex: z,
     height: DECK_CARD_HEIGHT,
 

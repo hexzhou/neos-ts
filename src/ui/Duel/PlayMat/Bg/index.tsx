@@ -1,9 +1,11 @@
 import classnames from "classnames";
+import { createContext, useContext } from "react";
 import { type INTERNAL_Snapshot as Snapshot, useSnapshot } from "valtio";
 
 import { sendSelectPlaceResponse, ygopro } from "@/api";
 import { Container } from "@/container";
 import { getUIContainer } from "@/container/compat";
+import type { CardType } from "@/stores";
 import {
   type BlockState,
   cardStore,
@@ -11,8 +13,10 @@ import {
   type PlaceInteractivity,
   placeStore,
 } from "@/stores";
+import { fieldInspection } from "@/stores/fieldInspection";
 import { BgChain, type ChainMarker, type ChainProps } from "@/ui/Shared";
 
+import { linkedZoneKeys, zoneKey } from "../fieldGeometry";
 import styles from "./index.module.scss";
 
 const { MZONE, SZONE, EXTRA, GRAVE, REMOVED } = ygopro.CardZone;
@@ -32,6 +36,8 @@ const toChainMarkers = (
     index,
   }));
 
+const LinkedZones = createContext(new Set<string>());
+
 const BgBlock: React.FC<
   React.HTMLProps<HTMLDivElement> & {
     disabled?: boolean;
@@ -46,18 +52,29 @@ const BgBlock: React.FC<
   className,
   chains,
   ...rest
-}) => (
-  <div
-    {...rest}
-    className={classnames(styles.block, className, {
-      [styles.highlight]: highlight,
-      [styles.glowing]: glowing,
-    })}
-  >
-    {<DisabledCross disabled={disabled} />}
-    {<BgChain {...chains} />}
-  </div>
-);
+}) => {
+  const linkedZones = useContext(LinkedZones);
+  const data = rest as Record<string, unknown>;
+  const linked =
+    data["data-zone"] === "MZONE" &&
+    linkedZones.has(
+      zoneKey(Number(data["data-controller"]), Number(data["data-sequence"])),
+    );
+  return (
+    <div
+      {...rest}
+      data-linked={linked}
+      className={classnames(styles.block, className, {
+        [styles.highlight]: highlight,
+        [styles.glowing]: glowing,
+        [styles.linked]: linked,
+      })}
+    >
+      {<DisabledCross disabled={disabled} />}
+      {<BgChain {...chains} />}
+    </div>
+  );
+};
 
 const BgExtraRow: React.FC<{
   meSnap: Snapshot<BlockState[]>;
@@ -253,20 +270,28 @@ const BgOtherBlocks: React.FC<{ op?: boolean }> = ({ op }) => {
 };
 
 export const Bg: React.FC = () => {
+  const { inner } = useSnapshot(cardStore);
+  const { hovered, pinned } = useSnapshot(fieldInspection);
+  const inspected = hovered ?? pinned;
+  const linked = linkedZoneKeys(
+    inner.find((card) => card.uuid === inspected) as CardType | undefined,
+  );
   const snap = useSnapshot(placeStore.inner);
   return (
-    <div className={styles["mat-bg"]}>
-      <BgRow snap={snap[SZONE].op} szone opponent />
-      <BgRow snap={snap[MZONE].op} opponent />
-      <BgExtraRow
-        meSnap={snap[MZONE].me.slice(5, 7)}
-        opSnap={snap[MZONE].op.slice(5, 7)}
-      />
-      <BgRow snap={snap[MZONE].me} />
-      <BgRow snap={snap[SZONE].me} szone />
-      <BgOtherBlocks />
-      <BgOtherBlocks op />
-    </div>
+    <LinkedZones.Provider value={linked}>
+      <div className={styles["mat-bg"]}>
+        <BgRow snap={snap[SZONE].op} szone opponent />
+        <BgRow snap={snap[MZONE].op} opponent />
+        <BgExtraRow
+          meSnap={snap[MZONE].me.slice(5, 7)}
+          opSnap={snap[MZONE].op.slice(5, 7)}
+        />
+        <BgRow snap={snap[MZONE].me} />
+        <BgRow snap={snap[SZONE].me} szone />
+        <BgOtherBlocks />
+        <BgOtherBlocks op />
+      </div>
+    </LinkedZones.Provider>
   );
 };
 

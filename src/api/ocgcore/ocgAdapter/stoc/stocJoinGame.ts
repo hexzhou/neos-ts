@@ -1,3 +1,5 @@
+import { BufferReader } from "@/infra";
+
 import { ygopro } from "../../idl/ocgcore";
 import { StocAdapter, YgoProPacket } from "../packet";
 
@@ -14,9 +16,15 @@ export default class JoinGameAdapter implements StocAdapter {
   }
 
   upcast(): ygopro.YgoStocMsg {
-    // TODO
+    // HostInfo 的 time_limit 位于偏移 18，uint16 小端；短包没有房间时限。
+    let timeLimit = -1;
+    if (this.packet.exData.byteLength >= 20) {
+      const reader = new BufferReader(this.packet.exData);
+      reader.setOffset(18);
+      timeLimit = reader.readUint16();
+    }
     return new ygopro.YgoStocMsg({
-      stoc_join_game: new ygopro.StocJoinGame({}),
+      stoc_join_game: new ygopro.StocJoinGame({ time_limit: timeLimit }),
     });
   }
 }

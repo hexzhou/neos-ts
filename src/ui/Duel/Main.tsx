@@ -14,6 +14,7 @@ import {
   CardListModal,
   CardModal,
   CheckCounterModal,
+  ConfirmCardsModal,
   EndModal,
   HintNotification,
   OptionModal,
@@ -24,6 +25,9 @@ import {
   YesNoModal,
 } from "./Message";
 import { ChatBox, HandChain, LifeBar, Mat, Menu, Underlying } from "./PlayMat";
+import { FieldSelection } from "./PlayMat/FieldSelection";
+import { LifeChange } from "./PlayMat/LifeChange";
+import { PhaseBanner } from "./PlayMat/PhaseBanner";
 
 export const loader: LoaderFunction = async () => {
   // 更新场景
@@ -74,8 +78,12 @@ export const Component: React.FC = () => {
       <Menu />
       <LifeBar />
       <Mat />
+      <LifeChange />
+      <PhaseBanner />
+      <FieldSelection />
       <CardModal />
       <CardListModal />
+      <ConfirmCardsModal />
       <HintNotification />
       <YesNoModal />
       <PositionModal />

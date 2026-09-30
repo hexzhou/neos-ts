@@ -16,6 +16,8 @@
 /builds
 /dist
 /.wrangler
+/wrangler.jsonc
+/wrangler.beta.jsonc
 /rust-src/target
 
 # misc

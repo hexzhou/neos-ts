@@ -17,6 +17,11 @@ export const emptyDeck: IDeck = { deckName: "", main: [], extra: [], side: [] };
 
 export const deckStore = proxy({
   decks: [] as IDeck[],
+  selectedDeckName: "",
+
+  get selectedDeck(): IDeck | undefined {
+    return deckStore.get(deckStore.selectedDeckName) ?? deckStore.decks[0];
+  },
 
   get(deckName: string) {
     return deckStore.decks.find((deck) => deck.deckName === deckName);
@@ -32,6 +37,9 @@ export const deckStore = proxy({
       return true;
     } else {
       deckStore.decks[index] = deck;
+      if (deckStore.selectedDeckName === deckName) {
+        deckStore.selectedDeckName = deck.deckName;
+      }
       // 新的名字可能和旧的名字不一样，所以要删除旧的，再添加
       await del(deckName, deckIdb);
       await set(deck.deckName, deck, deckIdb);
@@ -75,6 +83,7 @@ export const deckStore = proxy({
   },
   async reset() {
     deckStore.decks = [];
+    deckStore.selectedDeckName = "";
     await clear(deckIdb);
   },
 }) satisfies NeosStore;

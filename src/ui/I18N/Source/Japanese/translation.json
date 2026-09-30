@@ -160,6 +160,10 @@
     "PleaseEnterChatContent": "チャット内容を入力してください"
   },
   "MatchModal": {
+    "CustomServer": "カスタムサーバー",
+    "ServerAddress": "サーバーアドレス",
+    "ServerAddressPlaceholder": "例: wss://example.com:443",
+    "CustomServerHint": "ホスト:ポートまたは完全な wss:// アドレスを入力してください。前回の入力は自動保存されます。",
     "PleaseEnterCustomRoomInformation": "カスタムルーム情報を入力してください",
     "Server": "サーバー",
     "KoishiServer": "コイシサーバー",
@@ -201,6 +205,7 @@
     "SwitchMusicAccordingToTheEnvironment": "環境に応じて音楽を切り替える",
     "LanguageSettings": "言語",
     "AnimationSettings": "アニメーション",
+    "EnableAnimations": "アニメーションを有効にする",
     "AnimationSpeed": "アニメーション速度"
   },
   "DeckResults": {

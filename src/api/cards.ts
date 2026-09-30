@@ -2,6 +2,7 @@ import { useConfig } from "@/config";
 import sqliteMiddleWare, { sqliteCmd } from "@/middleware/sqlite";
 import { FtsParams } from "@/middleware/sqlite/fts";
 
+import { formatCardName } from "./cardText";
 import { isSuperReleaseCard } from "./superPreRelease";
 
 const { assetsPath, releaseResource, preReleaseResource } = useConfig();
@@ -20,6 +21,9 @@ export interface CardData {
   atk?: number;
   def?: number;
   level?: number;
+  rank?: number;
+  link?: number;
+  linkMarkers?: number;
   race?: number;
   attribute?: number;
   lscale?: number;
@@ -74,7 +78,10 @@ window.searchCard = searchCards;
 
 export function getCardStr(meta: CardMeta, idx: number): string | undefined {
   const str = `str${idx + 1}` as CardStrRange;
-  return meta.text[str];
+  const text = meta.text[str];
+  return text === undefined
+    ? undefined
+    : formatCardName(text, meta.text.name ?? "");
 }
 
 export function getCardImgUrl(code: number, back = false) {
@@ -83,9 +90,9 @@ export function getCardImgUrl(code: number, back = false) {
       ? assetsPath
       : `${import.meta.env.BASE_URL}${assetsPath}`;
   if (back || code === 0) {
-    return `${ASSETS_BASE}/card_back.jpg`;
+    return `${ASSETS_BASE}/card_back.webp`;
   } else if (isSuperReleaseCard(code)) {
-    return `${preReleaseResource.img}/${code}.jpg`;
+    return `${preReleaseResource.img}/${code}.webp`;
   } else {
     // Define translations for different languages (I18N)
     const language = localStorage.getItem("language");
@@ -105,6 +112,6 @@ export function getCardImgUrl(code: number, back = false) {
     }
     /* End of definition (I18N) */
 
-    return `${imgUrl}/${code}.jpg`;
+    return `${imgUrl}/${code}.webp`;
   }
 }

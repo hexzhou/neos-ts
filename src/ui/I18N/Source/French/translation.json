@@ -159,6 +159,10 @@
     "PleaseEnterChatContent": "Veuillez entrer le contenu du chat"
   },
   "MatchModal": {
+    "CustomServer": "Serveur personnalisé",
+    "ServerAddress": "Adresse du serveur",
+    "ServerAddressPlaceholder": "Ex. : wss://example.com:443",
+    "CustomServerHint": "Saisissez hôte:port ou une adresse wss:// complète. La dernière saisie est enregistrée automatiquement.",
     "PleaseEnterCustomRoomInformation": "Veuillez entrer les informations de la salle personnalisée",
     "Server": "Serveur",
     "KoishiServer": "Serveur Koishi",
@@ -199,6 +203,7 @@
     "SwitchMusicAccordingToTheEnvironment": "Changer la musique en fonction de l'environnement",
     "LanguageSettings": "Langue",
     "AnimationSettings": "Animation",
+    "EnableAnimations": "Activer les animations",
     "AnimationSpeed": "Vitesse d'animation"
   },
   "DeckResults": {

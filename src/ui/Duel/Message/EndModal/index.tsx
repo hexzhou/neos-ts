@@ -6,6 +6,7 @@ import { proxy, useSnapshot } from "valtio";
 import { fetchStrings, Region } from "@/api";
 import { getUIContainer } from "@/container/compat";
 import { replayStore, resetDuel } from "@/stores";
+import { createDuelDialog } from "@/stores/duelDialogs";
 
 import { NeosModal } from "../NeosModal";
 import styles from "./index.module.scss";
@@ -21,12 +22,12 @@ const defaultProps: EndProps = {
   isWin: false,
 };
 
-const localStore = proxy(defaultProps);
+export const endModalStore = proxy({ ...defaultProps });
 
 export const EndModal: React.FC = () => {
   const container = getUIContainer();
   const { message } = App.useApp();
-  const { isOpen, isWin, reason } = useSnapshot(localStore);
+  const { isOpen, isWin, reason } = useSnapshot(endModalStore);
   const { isReplay } = useSnapshot(replayStore);
   const navigate = useNavigate();
 
@@ -45,27 +46,12 @@ export const EndModal: React.FC = () => {
     <NeosModal
       title={fetchStrings(Region.System, 1500)}
       open={isOpen}
+      zIndex={3100}
+      okText={isReplay ? "返回" : "保存录像"}
+      cancelText="不保存"
       onOk={() => {
         if (!isReplay) {
-          const replayBuffers = replayStore.encode();
-          const blob = new Blob(replayBuffers, {
-            type: "application/octet-stream",
-          });
-          const url = URL.createObjectURL(blob);
-
-          const anchorElement = document.createElement("a");
-          document.body.appendChild(anchorElement);
-          anchorElement.style.display = "none";
-
-          anchorElement.href = url;
-          anchorElement.download =
-            new Date().toLocaleString() + ".neos" + ".yrp3d";
-          anchorElement.click();
-
-          // download the replay file
-          window.URL.revokeObjectURL(url);
-
-          document.body.removeChild(anchorElement);
+          replayStore.download();
         }
         onReturn();
       }}
@@ -90,14 +76,20 @@ export const EndModal: React.FC = () => {
   );
 };
 
-let rs: (arg?: any) => void = () => {};
+const dialog = createDuelDialog(
+  () => {
+    endModalStore.isOpen = false;
+    endModalStore.isWin = false;
+    endModalStore.reason = undefined;
+  },
+  undefined,
+  true,
+);
+const rs = dialog.finish;
 
 export const displayEndModal = async (isWin: boolean, reason?: string) => {
-  localStore.isWin = isWin;
-  localStore.reason = reason;
-  localStore.isOpen = true;
-  await new Promise<void>((resolve) => (rs = resolve)); // 等待在组件内resolve
-  localStore.isOpen = false;
-  localStore.isWin = false;
-  localStore.reason = undefined;
+  endModalStore.isWin = isWin;
+  endModalStore.reason = reason;
+  endModalStore.isOpen = true;
+  await dialog.wait();
 };

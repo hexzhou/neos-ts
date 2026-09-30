@@ -1,5 +1,6 @@
+import { LockOutlined } from "@ant-design/icons";
 import { CheckCard } from "@ant-design/pro-components";
-import { Button, Card, Segmented, Space, Tooltip } from "antd";
+import { Button, Card, Space, Tooltip } from "antd";
 import classnames from "classnames";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,6 +9,7 @@ import { INTERNAL_Snapshot as Snapshot, useSnapshot } from "valtio";
 import { type CardMeta, Region, ygopro } from "@/api";
 import { fetchStrings } from "@/api";
 import { CardType, isMe, matStore } from "@/stores";
+import { validSelection } from "@/stores/selectionRules";
 import { ScrollableArea, YgoCard } from "@/ui/Shared";
 
 import { groupBy } from "../../utils";
@@ -16,6 +18,7 @@ import { NeosModal } from "../NeosModal";
 import styles from "./index.module.scss";
 
 export interface SelectCardsModalProps {
+  selectionKind?: "count" | "tribute" | "sum";
   isOpen: boolean;
   min: number;
   max: number;
@@ -34,6 +37,7 @@ export interface SelectCardsModalProps {
 }
 
 export const SelectCardsModal: React.FC<SelectCardsModalProps> = ({
+  selectionKind = "count",
   isOpen,
   min,
   max,
@@ -54,6 +58,9 @@ export const SelectCardsModal: React.FC<SelectCardsModalProps> = ({
   const [result, setResult] = useState<[ygopro.CardZone, Option[]][]>([]);
   const [submitable, setSubmitable] = useState(false);
 
+  const singleSelection = single || max === 1;
+  const multipleZones = grouped.length > 1;
+
   const hint = useSnapshot(matStore.hint);
   const preHintMsg = hint.esHint || "";
   const selectHintMsg = hint.esSelectHint || "请选择卡片";
@@ -67,39 +74,32 @@ export const SelectCardsModal: React.FC<SelectCardsModalProps> = ({
       zone,
       [] as Option[],
     ]);
-    if (initial.length > 0) {
-      setResult(initial);
-    }
-  }, [selectables]);
+    setResult(initial);
+  }, [selectables, isOpen]);
 
   // 判断是否可以提交
   useEffect(() => {
     const flatResult = result.map(([_, v]) => v).flat();
-    const [sumLevel1, sumLevel2] = (["level1", "level2"] as const).map((key) =>
-      [...mustSelects, ...flatResult]
-        .map((option) => option[key] || 0)
-        .reduce((sum, current) => sum + current, 0),
-    );
-    const levelMatched = overflow
-      ? sumLevel1 >= totalLevels || sumLevel2 >= totalLevels
-      : sumLevel1 === totalLevels || sumLevel2 === totalLevels;
     setSubmitable(
-      single
-        ? flatResult.length === 1
-        : flatResult.length >= min && flatResult.length <= max && levelMatched,
+      validSelection(flatResult, mustSelects, {
+        selectionKind,
+        single,
+        min,
+        max,
+        totalLevels,
+        overflow,
+      }),
     );
-  }, [result]);
-
-  const zoneOptions = grouped.map((x) => ({
-    value: x[0],
-    label: fetchStrings(Region.System, x[0] + 1000),
-  }));
-
-  const [selectedZone, setSelectedZone] = useState(zoneOptions[0]?.value);
-
-  useEffect(() => {
-    setSelectedZone(zoneOptions[0]?.value);
-  }, [selectables]);
+  }, [
+    result,
+    single,
+    min,
+    max,
+    mustSelects,
+    totalLevels,
+    overflow,
+    selectionKind,
+  ]);
 
   // 文案
   const [submitText, finishText, cancelText] = [1211, 1296, 1295].map((n) =>
@@ -108,15 +108,26 @@ export const SelectCardsModal: React.FC<SelectCardsModalProps> = ({
 
   // Quick select if possiable
   const onQuickSelect = (option: Option) => {
-    if (max === 1 || single) {
+    if (
+      (max === 1 || single) &&
+      validSelection([option], mustSelects, {
+        selectionKind,
+        single,
+        min,
+        max,
+        totalLevels,
+        overflow,
+      })
+    ) {
       // if `max` is 1, it means that we can just select one,
       // so quick selection is possiable in this case.
-      onSubmit([option]);
+      onSubmit([...mustSelects, option]);
     }
   };
 
   return (
     <NeosModal
+      movable
       title={
         <>
           <span>{preHintMsg}</span>
@@ -178,78 +189,117 @@ export const SelectCardsModal: React.FC<SelectCardsModalProps> = ({
         direction="vertical"
         style={{ width: "100%", overflow: "hidden" }}
       >
-        <Selector
-          zoneOptions={zoneOptions}
-          selectedZone={selectedZone}
-          onChange={setSelectedZone as any}
-        />
-        <ScrollableArea maxHeight="50vh">
-          {grouped.map(
-            (options, i) =>
-              options[0] === selectedZone && (
-                <div className={styles["container"]} key={i}>
-                  <CheckCard.Group
-                    onChange={(res: any) => {
-                      const newRes: [ygopro.CardZone, Option[]][] = result.map(
-                        ([k, v]) => [k, k === selectedZone ? res : v],
-                      );
-                      setResult(newRes);
-                    }}
-                    value={
-                      result.find(([k, _]) => k === selectedZone)?.[1] ??
-                      ([] as any)
-                    }
-                    // TODO 考虑如何设置默认值，比如只有一个的，就直接选中
-                    multiple
-                    className={styles["check-group"]}
-                  >
-                    {options[1].map((card, j) => (
-                      <Tooltip
-                        title={card.effectDesc}
-                        placement="bottom"
-                        key={j}
-                      >
-                        {/* 这儿必须有一个div，不然tooltip不生效 */}
-                        <div
-                          data-testid="duel-select-card-option"
-                          data-card-code={card.meta.id}
-                          data-card-controller={card.location?.controller}
-                          data-card-zone={
-                            card.location?.zone === undefined
-                              ? undefined
-                              : ygopro.CardZone[card.location.zone]
-                          }
-                          data-card-zone-value={card.location?.zone}
-                          data-card-sequence={card.location?.sequence}
-                          data-card-response={card.response}
-                          onDoubleClick={() => onQuickSelect(card as Option)}
-                        >
-                          <CheckCard
-                            cover={
-                              <YgoCard
-                                code={card.meta.id}
-                                targeted={card.targeted}
-                                disabled={card.disabled}
-                                className={styles.card}
-                              />
-                            }
-                            className={classnames(styles["check-card"], {
-                              [styles.opponent]:
-                                card.location?.controller !== undefined &&
-                                !isMe(card.location.controller),
-                            })}
-                            value={card}
-                            onClick={() => {
-                              showCardModal(card);
-                            }}
+        <ScrollableArea maxHeight="50vh" className={styles.groups}>
+          {mustSelects.length > 0 && (
+            <section
+              className={styles.container}
+              data-testid="duel-select-card-mandatory"
+            >
+              <h3 className={styles["group-title"]}>
+                {fetchStrings(Region.System, 212)}
+              </h3>
+              <div className={styles["check-group"]}>
+                {mustSelects.map((card, i) => (
+                  <Tooltip title={card.effectDesc} placement="bottom" key={i}>
+                    <div
+                      className={styles["mandatory-card"]}
+                      data-testid="duel-select-card-mandatory-option"
+                      data-card-code={card.meta.id}
+                      data-card-response={card.response}
+                    >
+                      <CheckCard
+                        checked
+                        cover={
+                          <YgoCard
+                            code={card.meta.id}
+                            targeted={card.targeted}
+                            className={styles.card}
                           />
-                        </div>
-                      </Tooltip>
-                    ))}
-                  </CheckCard.Group>
-                </div>
-              ),
+                        }
+                        className={classnames(styles["check-card"], {
+                          [styles.opponent]:
+                            card.location?.controller !== undefined &&
+                            !isMe(card.location.controller),
+                        })}
+                        onClick={() => showCardModal(card)}
+                      />
+                      <LockOutlined
+                        className={styles["mandatory-lock"]}
+                        aria-hidden
+                      />
+                    </div>
+                  </Tooltip>
+                ))}
+              </div>
+            </section>
           )}
+          {grouped.map(([zone, cards]) => (
+            <CardZoneGroup zone={zone} horizontal={multipleZones} key={zone}>
+              <CheckCard.Group
+                onChange={(res: any) => {
+                  const newRes: [ygopro.CardZone, Option[]][] = result.map(
+                    ([k, v]) => [
+                      k,
+                      k === zone
+                        ? singleSelection
+                          ? res.slice(-1)
+                          : res
+                        : singleSelection
+                        ? []
+                        : v,
+                    ],
+                  );
+                  setResult(newRes);
+                }}
+                value={result.find(([k, _]) => k === zone)?.[1] ?? ([] as any)}
+                // TODO 考虑如何设置默认值，比如只有一个的，就直接选中
+                multiple
+                className={classnames(styles["check-group"], {
+                  [styles["horizontal-group"]]: multipleZones,
+                })}
+              >
+                {cards.map((card, j) => (
+                  <Tooltip title={card.effectDesc} placement="bottom" key={j}>
+                    {/* 这儿必须有一个div，不然tooltip不生效 */}
+                    <div
+                      data-testid="duel-select-card-option"
+                      data-card-code={card.meta.id}
+                      data-card-controller={card.location?.controller}
+                      data-card-zone={
+                        card.location?.zone === undefined
+                          ? undefined
+                          : ygopro.CardZone[card.location.zone]
+                      }
+                      data-card-zone-value={card.location?.zone}
+                      data-card-sequence={card.location?.sequence}
+                      data-card-response={card.response}
+                      onDoubleClick={() => onQuickSelect(card as Option)}
+                    >
+                      <CheckCard
+                        cover={
+                          <YgoCard
+                            code={card.meta.id}
+                            targeted={card.targeted}
+                            disabled={card.disabled}
+                            className={styles.card}
+                          />
+                        }
+                        className={classnames(styles["check-card"], {
+                          [styles.opponent]:
+                            card.location?.controller !== undefined &&
+                            !isMe(card.location.controller),
+                        })}
+                        value={card}
+                        onClick={() => {
+                          showCardModal(card);
+                        }}
+                      />
+                    </div>
+                  </Tooltip>
+                ))}
+              </CheckCard.Group>
+            </CardZoneGroup>
+          ))}
         </ScrollableArea>
         <p>
           <span>
@@ -287,26 +337,49 @@ export const SelectCardsModal: React.FC<SelectCardsModalProps> = ({
   );
 };
 
-/** 选择区域 */
-const Selector: React.FC<{
-  zoneOptions: {
-    value: ygopro.CardZone;
-    label: string;
-  }[];
-  selectedZone: ygopro.CardZone;
-  onChange: (value: ygopro.CardZone) => void;
-}> = ({ zoneOptions, selectedZone, onChange }) =>
-  zoneOptions.length > 1 ? (
-    <Segmented
-      block
-      options={zoneOptions}
-      style={{ margin: "10px 0" }}
-      value={selectedZone}
-      onChange={onChange as any}
-    />
-  ) : (
-    <></>
+const CardZoneGroup: React.FC<
+  React.PropsWithChildren<{
+    zone: ygopro.CardZone;
+    horizontal: boolean;
+  }>
+> = ({ zone, horizontal, children }) => {
+  const label = fetchStrings(Region.System, zone + 1000);
+
+  return (
+    <section
+      className={styles.container}
+      data-testid="duel-select-card-group"
+      data-card-zone={ygopro.CardZone[zone]}
+      aria-label={label}
+    >
+      {horizontal && <h3 className={styles["group-title"]}>{label}</h3>}
+      <div
+        className={horizontal ? styles["row-viewport"] : undefined}
+        data-testid="duel-select-card-row"
+      >
+        {horizontal ? (
+          <ScrollableArea
+            className={styles["row-content"]}
+            scrollProps={{
+              tabIndex: 0,
+              options: {
+                overflow: { x: "scroll", y: "hidden" },
+                scrollbars: {
+                  autoHide: "never",
+                  theme: "os-theme-light",
+                },
+              },
+            }}
+          >
+            {children}
+          </ScrollableArea>
+        ) : (
+          children
+        )}
+      </div>
+    </section>
   );
+};
 
 export interface Option {
   // card id
@@ -315,6 +388,7 @@ export interface Option {
   // 效果
   effectDesc?: string;
   // 作为素材的cost，比如同调召唤的星级
+  tributeValue?: number;
   level1?: number;
   level2?: number;
   response?: number;

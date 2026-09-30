@@ -26,12 +26,11 @@ function getDefaultSetting() {
     if (setting) {
       const config = JSON.parse(setting) as SettingStoreConfig;
       if (config.audio === undefined) config.audio = defaultAudioConfig;
-      if (config.animation === undefined)
-        config.animation = defaultAnimationConfig;
+      config.animation = { ...defaultAnimationConfig, ...config.animation };
       return config;
     }
   }
-  return defaultSettingConfig;
+  return { ...defaultSettingConfig, animation: { ...defaultAnimationConfig } };
 }
 
 const defaultSetting = getDefaultSetting();
@@ -64,9 +63,21 @@ class SettingStore implements NeosStore {
 /** 设置项 */
 export const settingStore = proxy(new SettingStore());
 
+const syncAnimationMode = () => {
+  if (!isSSR()) {
+    document.documentElement.dataset.neosAnimation = settingStore.animation
+      .enabled
+      ? "enabled"
+      : "disabled";
+  }
+};
+syncAnimationMode();
+subscribe(settingStore.animation, syncAnimationMode, true);
+
 /** 持久化设置项 */
 subscribe(settingStore, () => {
   if (!isSSR()) {
+    syncAnimationMode();
     localStorage.setItem(
       NEO_SETTING_CONFIG,
       JSON.stringify(pick(settingStore, ["audio", "animation"])),

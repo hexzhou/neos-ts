@@ -51,6 +51,8 @@ export default async (
     });
   });
 
+  context.matStore.clearPhaseCommands();
+  context.matStore.phase.command = { type: "idle", player };
   context.matStore.phase.enableBp = selectIdleCmd.enable_bp;
   context.matStore.phase.enableEp = selectIdleCmd.enable_ep;
 };

@@ -14,6 +14,7 @@ import {
 } from "@/api";
 import { Container } from "@/container";
 import { getUIContainer } from "@/container/compat";
+import { createDuelDialog } from "@/stores/duelDialogs";
 
 import { NeosModal } from "../NeosModal";
 import styles from "./index.module.scss";
@@ -26,7 +27,7 @@ const defaultStore = {
   min: 1,
   options: [] satisfies Options as Options,
 };
-const store = proxy(defaultStore);
+const store = proxy({ ...defaultStore });
 
 // 一页最多4个选项
 const MAX_NUM_PER_PAGE = 4;
@@ -63,6 +64,7 @@ export const OptionModal = () => {
 
   return (
     <NeosModal
+      movable
       title={title}
       open={isOpen}
       footer={
@@ -135,7 +137,12 @@ const Selector: React.FC<{
     <></>
   );
 
-let rs: (v?: any) => void = () => {};
+const dialog = createDuelDialog(() => {
+  store.isOpen = false;
+  store.title = "";
+  store.options = [];
+}, undefined);
+const rs = dialog.finish;
 export const displayOptionModal = async (
   title: string,
   options: Options,
@@ -145,8 +152,7 @@ export const displayOptionModal = async (
   store.options = options;
   store.min = min;
   store.isOpen = true;
-  await new Promise((resolve) => (rs = resolve));
-  store.isOpen = false;
+  await dialog.wait();
 };
 
 export const handleEffectActivation = async (

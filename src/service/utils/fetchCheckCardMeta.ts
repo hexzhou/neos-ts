@@ -9,6 +9,7 @@ const helper = async (
   {
     code,
     location,
+    tributeValue,
     level1,
     level2,
     response,
@@ -16,6 +17,7 @@ const helper = async (
   }: {
     code: number;
     location: ygopro.CardLocation;
+    tributeValue?: number;
     level1?: number;
     level2?: number;
     response: number;
@@ -27,8 +29,7 @@ const helper = async (
   selected?: boolean,
   mustSelect?: boolean,
 ) => {
-  const { controller, zone, sequence } = location;
-  const target = context.cardStore.at(zone, controller, sequence);
+  const target = context.cardStore.find(location);
 
   // 这里可能直接用target.meta即可，不用再查一遍DB
   // 但是ygopro后端传回来了code，感觉这里会有些坑，因此求稳这样写
@@ -48,6 +49,7 @@ const helper = async (
   const newOption: Option = {
     meta,
     location,
+    tributeValue,
     level1,
     level2,
     effectDesc,
@@ -70,6 +72,7 @@ export const fetchCheckCardMeta = async (
   cards: {
     code: number;
     location: ygopro.CardLocation;
+    tributeValue?: number;
     level1?: number;
     level2?: number;
     response: number;

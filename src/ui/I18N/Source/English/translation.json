@@ -162,6 +162,10 @@
     "PleaseEnterChatContent": "Please enter chat"
   },
   "MatchModal": {
+    "CustomServer": "Custom server",
+    "ServerAddress": "Server address",
+    "ServerAddressPlaceholder": "e.g. wss://example.com:443",
+    "CustomServerHint": "Enter host:port or a full wss:// address. Your last entry is saved automatically.",
     "PleaseEnterCustomRoomInformation": "Please enter custom room information",
     "Server": "Server",
     "KoishiServer": "Koishi Server",
@@ -204,6 +208,7 @@
     "SwitchMusicAccordingToTheEnvironment": "Switch music according to the environment",
     "LanguageSettings": "Language",
     "AnimationSettings": "Animation",
+    "EnableAnimations": "Enable animations",
     "AnimationSpeed": "Animation speed"
   },
   "DeckResults": {

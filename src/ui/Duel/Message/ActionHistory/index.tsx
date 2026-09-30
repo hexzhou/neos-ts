@@ -6,6 +6,7 @@ import { proxy, useSnapshot } from "valtio";
 import { fetchStrings, Region, ygopro } from "@/api";
 import { useConfig } from "@/config";
 import { History, HistoryOp, historyStore } from "@/stores";
+import { registerDuelDialogReset } from "@/stores/duelDialogs";
 import { ScrollableArea, YgoCard } from "@/ui/Shared";
 
 import styles from "./index.module.scss";
@@ -16,7 +17,8 @@ const defaultStore = {
   isOpen: false,
 };
 
-const store = proxy(defaultStore);
+const store = proxy({ ...defaultStore });
+registerDuelDialogReset(() => Object.assign(store, defaultStore));
 
 export const ActionHistory: React.FC = () => {
   const { isOpen } = useSnapshot(store);
@@ -25,7 +27,8 @@ export const ActionHistory: React.FC = () => {
     <Drawer
       open={isOpen}
       placement="right"
-      rootClassName={styles.root}
+      rootClassName={`${styles.root} duel-side-drawer duel-translucent-drawer`}
+      data-testid="duel-history-drawer"
       className={styles.drawer}
       mask={false}
       closeIcon={<RightOutlined />}

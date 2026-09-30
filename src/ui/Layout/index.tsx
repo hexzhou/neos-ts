@@ -32,16 +32,9 @@ import { accountStore } from "@/stores";
 import { updateMdproDeck } from "../BuildDeck/DeckDatabase/DeckResults";
 import { setCssProperties } from "../Duel/PlayMat/css";
 import { Setting } from "../Setting";
+import { ConnectionStatus } from "../Shared/ConnectionStatus";
 import styles from "./index.module.scss";
-import {
-  getLoginStatus,
-  handleSSOLogin,
-  initDeck,
-  initForbidden,
-  initI18N,
-  initSqlite,
-  initSuper,
-} from "./utils";
+import { getLoginStatus, handleSSOLogin, initializeApp } from "./utils";
 
 const NeosConfig = useConfig();
 const DEFAULT_VIEWPORT_SCALE = { designWidth: 1000, designHeight: 620 };
@@ -49,11 +42,7 @@ const DUEL_VIEWPORT_SCALE = { designWidth: 1000, designHeight: 920 };
 
 export const loader: LoaderFunction = async () => {
   getLoginStatus();
-  initDeck();
-  initSqlite();
-  initForbidden();
-  initI18N();
-  initSuper();
+  void initializeApp().catch(() => undefined);
   // TODO: should avoid reloading mdpro deck again
   updateMdproDeck();
 
@@ -224,6 +213,7 @@ export const Component = () => {
         </nav>
       )}
       <main className={styles.main}>
+        <ConnectionStatus />
         <Outlet />
       </main>
     </>
