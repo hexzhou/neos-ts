@@ -17,13 +17,12 @@ import {
   theme,
   Tooltip,
 } from "antd";
-import classNames from "classnames";
 import { cloneElement, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useSnapshot } from "valtio";
 
-import { sendSelectSingleResponse, sendSurrender, ygopro } from "@/api";
+import { sendSurrender, ygopro } from "@/api";
 import { getUIContainer } from "@/container/compat";
 import {
   ChainSetting,
@@ -36,7 +35,6 @@ import { disconnectSession } from "@/ui/Match/util";
 import { IconFont } from "@/ui/Shared";
 
 import { displayActionHistory } from "../../Message";
-import { clearSelectInfo } from "../../utils";
 import { openChatBox } from "../ChatBox";
 import { allChain, availableChain, ignoreChain, smartChain } from "../labels";
 import { PhaseControl } from "../PhaseControl";
@@ -44,7 +42,6 @@ import styles from "./index.module.scss";
 
 const { useToken } = theme;
 
-const FINISH_CANCEL_RESPONSE = -1;
 const REPLAY_ADVANCE_EVENT = "neos:replay-advance";
 
 interface ReplayAdvanceEventDetail {
@@ -166,7 +163,6 @@ export const Menu = () => {
       data-testid="duel-toolbar"
       className={styles["menu-container"]}
     >
-      <SelectManager />
       <ReplayControl />
       <Tooltip title={i18n("History")}>
         <Button
@@ -320,25 +316,4 @@ const ChainIcon: React.FC<{ chainSetting: ChainSetting }> = ({
     default:
       return <IconFont type="icon-chain-broken" />;
   }
-};
-
-const SelectManager: React.FC = () => {
-  const container = getUIContainer();
-  const { t: i18n } = useTranslation("Menu");
-  const { finishable, cancelable } = useSnapshot(matStore.selectUnselectInfo);
-  const onFinishOrCancel = () => {
-    sendSelectSingleResponse(container.conn, FINISH_CANCEL_RESPONSE);
-    clearSelectInfo();
-  };
-  return (
-    <div className={styles["select-manager"]}>
-      <Button
-        className={classNames(styles.btn, { [styles.cancle]: cancelable })}
-        disabled={!cancelable && !finishable}
-        onClick={onFinishOrCancel}
-      >
-        {finishable ? i18n("SelectionComplete") : i18n("Deselect")}
-      </Button>
-    </div>
-  );
 };

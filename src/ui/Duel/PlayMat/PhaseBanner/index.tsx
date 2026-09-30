@@ -4,6 +4,7 @@ import { proxy, useSnapshot } from "valtio";
 
 import { ygopro } from "@/api";
 import { createDuelDialog } from "@/stores/duelDialogs";
+import { settingStore } from "@/stores/settingStore";
 
 import {
   battlePhase,
@@ -37,7 +38,8 @@ const dialog = createDuelDialog(() => {
 export function displayPhaseBanner(phase: PhaseType): Promise<void> {
   dialog.finish();
   // 战斗步骤、伤害步骤等细分阶段不重复播放横幅。
-  if (!phases[phase]) return Promise.resolve();
+  if (!phases[phase] || !settingStore.animation.enabled || document.hidden)
+    return Promise.resolve();
   state.phase = phase;
   const finished = dialog.wait();
   timer = setTimeout(() => dialog.finish(), PHASE_BANNER_DURATION);
@@ -45,8 +47,12 @@ export function displayPhaseBanner(phase: PhaseType): Promise<void> {
 }
 
 export const PhaseBanner = () => {
+  const { enabled } = useSnapshot(settingStore.animation);
   const { phase } = useSnapshot(state);
   useEffect(() => () => dialog.finish(), []);
+  useEffect(() => {
+    if (!enabled) dialog.finish();
+  }, [enabled]);
   const label = phase === null ? undefined : phases[phase];
   if (!label) return null;
   return createPortal(

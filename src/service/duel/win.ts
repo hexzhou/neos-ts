@@ -7,6 +7,7 @@ import { AudioActionType, changeScene } from "@/infra/audio";
 
 export default async (container: Container, win: MsgWin) => {
   const context = container.context;
+  context.matStore.deckReserved = false;
   context.matStore.stopClock();
   const { win_player, reason } = win;
 

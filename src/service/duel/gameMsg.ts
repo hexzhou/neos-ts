@@ -200,7 +200,7 @@ export default async function handleGameMsg(
       break;
     }
     case "update_hp": {
-      onMsgUpdateHp(container, msg.update_hp);
+      await onMsgUpdateHp(container, msg.update_hp);
 
       break;
     }
@@ -348,7 +348,7 @@ export default async function handleGameMsg(
       break;
     }
     case "shuffle_deck": {
-      onMsgShuffleDeck(container, msg.shuffle_deck);
+      await onMsgShuffleDeck(container, msg.shuffle_deck);
 
       break;
     }

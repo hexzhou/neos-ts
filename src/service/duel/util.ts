@@ -3,6 +3,7 @@ const { MZONE, SZONE, HAND } = ygopro.CardZone;
 import { fetchStrings } from "@/api";
 import { Region } from "@/api";
 import { fetchCard } from "@/api/cards";
+import { formatCardName } from "@/api/cardText";
 import { Context } from "@/container";
 
 export function isAllOnField(locations: ygopro.CardLocation[]): boolean {
@@ -79,7 +80,7 @@ export const fetchEsHintMeta = async ({
   let esHint = newOriginMsg;
 
   if (cardMeta?.text.name) {
-    esHint = esHint.replace("[?]", cardMeta.text.name);
+    esHint = formatCardName(esHint, cardMeta.text.name, "[?]");
   }
 
   if (location) {
@@ -89,7 +90,7 @@ export const fetchEsHintMeta = async ({
       location.sequence,
     );
     if (fieldMeta?.meta.text.name) {
-      esHint = esHint.replace("[?]", fieldMeta.meta.text.name);
+      esHint = formatCardName(esHint, fieldMeta.meta.text.name, "[?]");
     }
   }
 

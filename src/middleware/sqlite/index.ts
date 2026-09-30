@@ -102,9 +102,11 @@ function helper<T extends sqliteCmd>(action: sqliteAction<T>) {
         updateDbUrls(info, language);
 
         const releasePromise = pfetch(info.releaseDbUrl, {
+          chunkSize: 5_000_000,
           progressCallback: action.initInfo?.progressCallback,
         }).then((res) => res.arrayBuffer()); // TODO: i18n
         const preReleasePromise = pfetch(info.preReleaseDbUrl, {
+          chunkSize: 5_000_000,
           progressCallback: action.initInfo?.progressCallback,
         }).then((res) => res.arrayBuffer());
 

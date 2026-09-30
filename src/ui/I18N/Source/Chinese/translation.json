@@ -208,6 +208,7 @@
     "SwitchMusicAccordingToTheEnvironment": "根据环境切换音乐",
     "LanguageSettings": "语言",
     "AnimationSettings": "动画",
+    "EnableAnimations": "启用动画",
     "AnimationSpeed": "动画速度",
     "RecoverDefault": "恢复默认设置"
   },

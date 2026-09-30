@@ -25,6 +25,8 @@
       top: 0;
       // border-radius: 2px; // 这里好像会导致卡片分辨率降低
       overflow: hidden;
+      // 正面和背面各自只向外绘制，避免翻转后显示镜像卡面。
+      backface-visibility: hidden;
     }
     .cover {
       z-index: 1;
@@ -35,7 +37,7 @@
     }
     .back {
       z-index: 0;
-      transform: translateZ(0px);
+      transform: rotateY(180deg);
     }
   }
   .shadow {
@@ -100,6 +102,11 @@
     display: var(--focus-display);
     opacity: var(--focus-opacity);
   }
+}
+
+// 对方手卡只翻转卡面，正面文字朝向玩家，卡片本身保留原来的排列角度。
+.confirm-opponent-hand .img-wrap .cover {
+  transform: translateZ(0.5px) rotateZ(180deg);
 }
 
 .frame {

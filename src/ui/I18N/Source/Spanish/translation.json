@@ -203,6 +203,7 @@
     "SwitchMusicAccordingToTheEnvironment": "Cambiar la música según el entorno",
     "LanguageSettings": "Idioma",
     "AnimationSettings": "animación",
+    "EnableAnimations": "Activar animaciones",
     "AnimationSpeed": "Velocidad de animación"
   },
   "DeckResults": {

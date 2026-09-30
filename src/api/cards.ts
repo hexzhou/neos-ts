@@ -2,6 +2,7 @@ import { useConfig } from "@/config";
 import sqliteMiddleWare, { sqliteCmd } from "@/middleware/sqlite";
 import { FtsParams } from "@/middleware/sqlite/fts";
 
+import { formatCardName } from "./cardText";
 import { isSuperReleaseCard } from "./superPreRelease";
 
 const { assetsPath, releaseResource, preReleaseResource } = useConfig();
@@ -77,7 +78,10 @@ window.searchCard = searchCards;
 
 export function getCardStr(meta: CardMeta, idx: number): string | undefined {
   const str = `str${idx + 1}` as CardStrRange;
-  return meta.text[str];
+  const text = meta.text[str];
+  return text === undefined
+    ? undefined
+    : formatCardName(text, meta.text.name ?? "");
 }
 
 export function getCardImgUrl(code: number, back = false) {

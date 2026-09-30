@@ -9,6 +9,7 @@ import {
   searchCards,
   sendSelectOptionResponse,
 } from "@/api";
+import { quoteCardName } from "@/api/cardText";
 import { isDeclarable, isToken } from "@/common";
 import { getUIContainer } from "@/container/compat";
 import { emptySearchConditions } from "@/middleware/sqlite/fts";
@@ -63,6 +64,7 @@ export const AnnounceModal: React.FC = () => {
 
   return (
     <NeosModal
+      movable
       title="请输入关键字并选择宣言的卡"
       open={isOpen}
       footer={
@@ -123,7 +125,7 @@ export const AnnounceModal: React.FC = () => {
             >
               <List.Item.Meta
                 avatar={<Avatar src={getCardImgUrl(item.id)} />}
-                title={<a>{item.text.name}</a>}
+                title={<a>{quoteCardName(item.text.name)}</a>}
                 description={item.text.desc?.substring(0, MAX_DESC_LEN) + "..."}
               />
             </List.Item>

@@ -33,6 +33,7 @@ export const ReplayAdvanceFlag = {
   CONFIRM_CARDS: 1 << 25,
   UPDATE_COUNTER: 1 << 26,
   UPDATE_DATA: 1 << 27,
+  DECK: 1 << 28,
 } as const;
 
 export const DEFAULT_REPLAY_ADVANCE_MASK =
@@ -62,7 +63,8 @@ export const DEFAULT_REPLAY_ADVANCE_MASK =
   ReplayAdvanceFlag.SHUFFLE_SET_CARD |
   ReplayAdvanceFlag.FIELD_DISABLED |
   ReplayAdvanceFlag.CONFIRM_CARDS |
-  ReplayAdvanceFlag.UPDATE_COUNTER;
+  ReplayAdvanceFlag.UPDATE_COUNTER |
+  ReplayAdvanceFlag.DECK;
 
 const GAME_MSG_ADVANCE_FLAGS: Record<string, number> = {
   start: ReplayAdvanceFlag.START,
@@ -93,6 +95,7 @@ const GAME_MSG_ADVANCE_FLAGS: Record<string, number> = {
   confirm_cards: ReplayAdvanceFlag.CONFIRM_CARDS,
   update_counter: ReplayAdvanceFlag.UPDATE_COUNTER,
   update_data: ReplayAdvanceFlag.UPDATE_DATA,
+  shuffle_deck: ReplayAdvanceFlag.DECK,
 };
 
 // 对局中每一次状态改变的记录

@@ -54,6 +54,10 @@ async function setup(page: Page) {
         const { default: handler } = await import("/src/service/duel/selectSum.ts");
         const must = (options.must ?? []).map((id, response) => ({ code: 46986414, location: cardStore.inner.find(c => c.uuid === id).location, level1: 1, level2: 1, response }));
         void handler(getUIContainer(), { ...base, overflow: 0, ...options, selectable_cards: cards, must_select_cards: must });
+      } else if (kind === "unselect") {
+        const { default: handler } = await import("/src/service/duel/selectUnselectCard.ts");
+        const selected = infos(options.selected ?? []).map((info, index) => ({ ...info, response: cards.length + index }));
+        void handler(getUIContainer(), { finishable: false, ...base, selectable_cards: cards, selected_cards: selected });
       }
     };
     window.__wire = async (bytes) => {
@@ -79,6 +83,145 @@ const card = (page: Page, uuid: string) => page.locator(`[data-testid="duel-card
 const sent = (page: Page) => page.evaluate(() => window.__sent);
 const choose = (page: Page, kind: string, options: object) => page.evaluate(({kind, options}) => window.__choose(kind, options), {kind, options});
 const modal = (page: Page) => page.locator('[data-testid="duel-select-cards-modal"]:visible');
+
+test("field state resets on zone changes, overlay attachment and setting, but survives control changes", async ({ page }) => {
+  await setup(page);
+  for (const transition of ["control", "GRAVE", "HAND", "DECK", "EXTRA", "REMOVED", "SZONE", "overlay", "set-move", "set-position", "set-query"]) {
+    const state = await page.evaluate(async transition => {
+      const { cardStore } = await import("/src/stores/index.ts");
+      const { getUIContainer } = await import("/src/container/compat.ts");
+      const { default: move } = await import("/src/service/duel/move.ts");
+      const { default: posChange } = await import("/src/service/duel/posChange.ts");
+      const { ygopro } = await import("/src/api/index.ts");
+      const { STATUS_DISABLED, STATUS_FORBIDDEN } = await import("/src/common.ts");
+      const [source, related] = cardStore.inner;
+      Object.assign(source, window.__make("a", 0));
+      Object.assign(related, window.__make("b", 1));
+      source.status = STATUS_DISABLED | STATUS_FORBIDDEN | 8;
+      source.counters = { 1: 3 };
+      source.targeted = true;
+      source.meta.data.atk = 3000;
+      source.meta.data.attribute = 2;
+      source.equipTarget = related.uuid;
+      source.effectTargets = [related.uuid];
+      related.equipTarget = source.uuid;
+      related.effectTargets = [source.uuid];
+      const container = getUIContainer();
+      if (transition === "set-position") {
+        await posChange(container, { card_info: { controller: 0, location: ygopro.CardZone.MZONE, sequence: 0 }, cur_position: ygopro.CardPosition.FACEDOWN_DEFENSE });
+      } else if (transition === "set-query") {
+        // QUERY_POSITION only: omitted status/counter fields must not retain old state.
+        await window.__query(0, 4, 0, 2, [0x08000400]);
+      } else {
+        const to = new ygopro.CardLocation({
+          controller: transition === "control" ? 1 : 0,
+          zone: ygopro.CardZone[transition] ?? ygopro.CardZone.MZONE,
+          sequence: transition === "overlay" ? 1 : 0,
+          position: transition === "set-move" ? ygopro.CardPosition.FACEDOWN_DEFENSE : ygopro.CardPosition.FACEUP_ATTACK,
+          is_overlay: transition === "overlay",
+        });
+        await move(container, { code: source.code, from: source.location, to, reason: 0 });
+      }
+      return {
+        status: source.status, counters: { ...source.counters }, targeted: source.targeted,
+        atk: source.meta.data.atk, attribute: source.meta.data.attribute,
+        outgoing: [source.equipTarget ?? null, [...(source.effectTargets ?? [])]],
+        incoming: [related.equipTarget ?? null, [...(related.effectTargets ?? [])]],
+      };
+    }, transition);
+    if (transition === "control") {
+      expect(state).toEqual({ status: 0x4000009, counters: { 1: 3 }, targeted: true, atk: 3000, attribute: 2, outgoing: ["b", ["b"]], incoming: ["a", ["a"]] });
+      await expect(card(page, "a")).toHaveAttribute("data-card-disabled", "true");
+    } else {
+      expect(state, transition).toEqual({ status: 8, counters: {}, targeted: false, atk: 1800, attribute: 1, outgoing: [null, []], incoming: [null, []] });
+      await expect(card(page, "a")).toHaveAttribute("data-card-disabled", "false");
+    }
+  }
+  // Flipping face up again must not restore stale negation or counters.
+  await page.evaluate(async () => {
+    const { getUIContainer } = await import("/src/container/compat.ts");
+    const { default: posChange } = await import("/src/service/duel/posChange.ts");
+    const { ygopro } = await import("/src/api/index.ts");
+    await posChange(getUIContainer(), { card_info: { controller: 0, location: ygopro.CardZone.MZONE, sequence: 0 }, cur_position: ygopro.CardPosition.FACEUP_ATTACK });
+  });
+  await expect(card(page, "a")).toHaveAttribute("data-card-disabled", "false");
+  await expect(card(page, "a").getByTestId("field-card-counter")).toHaveCount(0);
+});
+
+test("negation is displayed only on face-up field cards even when query status is present elsewhere", async ({ page }) => {
+  await setup(page);
+  const states = await page.evaluate(async () => {
+    const { cardStore, isCardDisabled } = await import("/src/stores/index.ts");
+    const { ygopro } = await import("/src/api/index.ts");
+    const source = cardStore.inner[0];
+    return [1, 0x4000000].flatMap(status =>
+      [ygopro.CardZone.MZONE, ygopro.CardZone.SZONE, ygopro.CardZone.GRAVE, ygopro.CardZone.REMOVED, ygopro.CardZone.HAND, ygopro.CardZone.DECK, ygopro.CardZone.EXTRA].flatMap(zone =>
+        [ygopro.CardPosition.FACEUP_ATTACK, ygopro.CardPosition.FACEDOWN_DEFENSE].flatMap(position =>
+          [false, true].map(is_overlay => {
+            source.status = status;
+            Object.assign(source.location, { zone, position, is_overlay });
+            return { actual: isCardDisabled(source), expected: [ygopro.CardZone.MZONE, ygopro.CardZone.SZONE].includes(zone) && position === ygopro.CardPosition.FACEUP_ATTACK && !is_overlay };
+          }),
+        ),
+      ),
+    );
+  });
+  for (const state of states) expect(state.actual).toBe(state.expected);
+  await expect(card(page, "a")).toHaveAttribute("data-card-disabled", "false");
+});
+
+test("incomplete summon hints appear only before detail text and update with query status", async ({ page }) => {
+  await setup(page);
+  const results = await page.evaluate(async () => {
+    const { cardStore, hasIncompleteSummon } = await import("/src/stores/index.ts");
+    const { ygopro } = await import("/src/api/index.ts");
+    const results = [];
+    for (const type of [0x41, 0x81, 0x2001, 0x800001, 0x4000001, 0x2000001, 1, 0x82]) {
+      for (const zone of [ygopro.CardZone.GRAVE, ygopro.CardZone.REMOVED, ygopro.CardZone.MZONE, ygopro.CardZone.HAND, ygopro.CardZone.EXTRA]) {
+        for (const status of [0, 8]) {
+          const source = window.__make("hint", 0, 0, zone);
+          source.meta.data.type = source.originalData.type = type;
+          source.status = status;
+          results.push({ actual: hasIncompleteSummon(source), expected: ![1, 0x82].includes(type) && [ygopro.CardZone.GRAVE, ygopro.CardZone.REMOVED].includes(zone) && status === 0 });
+          source.location.position = ygopro.CardPosition.FACEDOWN_DEFENSE;
+          results.push({ actual: hasIncompleteSummon(source), expected: false });
+          source.location.position = ygopro.CardPosition.FACEUP_ATTACK;
+          source.location.is_overlay = true;
+          results.push({ actual: hasIncompleteSummon(source), expected: false });
+        }
+      }
+    }
+    const source = window.__make("hint", 0, 0, ygopro.CardZone.GRAVE);
+    source.meta.data.type = source.originalData.type = 0x41;
+    source.meta.text.desc = "卡片效果文本";
+    cardStore.inner = [source];
+    const { displayCardListModal } = await import("/src/ui/Duel/Message/CardListModal/index.tsx");
+    displayCardListModal({ isZone: true, zone: ygopro.CardZone.GRAVE, controller: 0 });
+    return results;
+  });
+  for (const result of results) expect(result.actual).toBe(result.expected);
+  const list = page.getByTestId("duel-card-list-drawer");
+  await expect(page.getByTestId("card-summon-incomplete")).toHaveCount(0);
+  await list.locator("img").locator("..").click();
+  const detail = page.getByTestId("duel-card-detail");
+  const hint = detail.getByTestId("card-summon-incomplete");
+  await expect(hint).toHaveText("未正规登场");
+  await expect(hint).toHaveCSS("color", "rgb(15, 255, 15)");
+  expect(await hint.evaluate(node => node.nextElementSibling?.textContent)).toContain("卡片效果文本");
+  await expect(page.getByTestId("card-summon-incomplete")).toHaveCount(1);
+  await page.screenshot({ path: "/tmp/neos-incomplete-summon.png", animations: "disabled" });
+  // A fresh QUERY_STATUS updates the open detail without reopening it.
+  await page.evaluate(() => window.__query(0, 16, 0, 0x80000, [8]));
+  await expect(list.getByTestId("card-summon-incomplete")).toHaveCount(0);
+  await expect(detail.getByTestId("card-summon-incomplete")).toHaveCount(0);
+  await page.evaluate(() => window.__query(0, 16, 0, 0x80000, [0]));
+  await expect(list.getByTestId("card-summon-incomplete")).toHaveCount(0);
+  await expect(detail.getByTestId("card-summon-incomplete")).toBeVisible();
+  await choose(page, "card", { ids: ["hint"] });
+  await expect(modal(page).getByTestId("card-summon-incomplete")).toHaveCount(0);
+  await modal(page).getByTestId("duel-select-card-option").click();
+  await expect(detail.getByTestId("card-summon-incomplete")).toBeVisible();
+});
 
 test("field card selection replaces a single choice, collects multiple choices and falls back for mixed zones", async ({ page }, info) => {
   await setup(page);
@@ -113,6 +256,100 @@ test("field card selection replaces a single choice, collects multiple choices a
   });
   await choose(page, "card", { ids: ["a", "b"] });
   await expect(modal(page)).toBeVisible();
+  await expect(page.getByTestId("field-selection")).not.toBeVisible();
+});
+
+test("incremental material selection cancels and finishes from the bottom tips", async ({ page }, info) => {
+  await setup(page);
+  await expect(page.getByTestId("duel-toolbar").getByRole("button", { name: "取消选择", exact: true })).toHaveCount(0);
+  await page.evaluate(async () => {
+    const { matStore } = await import("/src/stores/index.ts");
+    matStore.hint.esSelectHint = "请选择融合素材";
+  });
+  await choose(page, "unselect", { ids: ["a", "b", "c"], min: 3, max: 3 });
+  await expect(page.getByTestId("field-selection")).toContainText("请选择融合素材");
+  await expect(page.getByTestId("field-selection-cancel")).toBeEnabled();
+  await expect(page.getByTestId("field-selection-submit")).toHaveCount(0);
+  await card(page, "a").click();
+  expect((await sent(page)).at(-1).slice(2)).toEqual([1, 1, 0]);
+  await expect(page.getByTestId("field-selection")).not.toBeVisible();
+
+  await choose(page, "unselect", { ids: ["b", "c"], selected: ["a"], min: 3, max: 3 });
+  await expect(card(page, "a")).toHaveAttribute("data-card-selected", "true");
+  await expect(page.getByTestId("field-selection-progress")).toHaveText("1 张");
+  await page.screenshot({ path: info.outputPath("incremental-selection-tips.png") });
+  await page.getByTestId("field-selection-cancel").click();
+  expect((await sent(page)).at(-1).slice(2)).toEqual([1, 255, 255, 255, 255]);
+  await expect(card(page, "a")).toHaveAttribute("data-card-selected", "false");
+  await expect(card(page, "b")).toHaveAttribute("data-card-selectable", "false");
+  await expect(page.getByTestId("field-selection")).not.toBeVisible();
+
+  await choose(page, "unselect", { ids: ["a", "b"], cancelable: false });
+  await expect(page.getByTestId("field-selection")).toBeVisible();
+  await expect(page.getByTestId("field-selection-cancel")).toHaveCount(0);
+  await expect(page.getByTestId("field-selection-submit")).toHaveCount(0);
+  expect(await sent(page)).toEqual([]);
+
+  await choose(page, "unselect", { ids: ["b", "c"], selected: ["a"], finishable: true, cancelable: true, min: 1, max: 3 });
+  await expect(page.getByTestId("field-selection-cancel")).toHaveCount(0);
+  await expect(page.getByTestId("field-selection-submit")).toHaveText("完成选择");
+  await page.getByTestId("field-selection-submit").click();
+  expect((await sent(page)).at(-1).slice(2)).toEqual([1, 255, 255, 255, 255]);
+  await expect(page.getByTestId("field-selection")).not.toBeVisible();
+
+  await page.evaluate(async () => {
+    const { cardStore } = await import("/src/stores/index.ts");
+    const { ygopro } = await import("/src/api/index.ts");
+    cardStore.inner[0].location.zone = ygopro.CardZone.GRAVE;
+  });
+  await choose(page, "unselect", { ids: ["a"] });
+  await expect(modal(page)).toBeVisible();
+  await expect(page.getByTestId("field-selection")).not.toBeVisible();
+  await page.locator('[data-testid="duel-select-card-cancel"]:visible').click();
+  expect((await sent(page)).at(-1).slice(2)).toEqual([1, 255, 255, 255, 255]);
+});
+
+test("Zoroa field-first targeting preserves cancellation and then offers graveyard targets", async ({ page }) => {
+  await setup(page);
+  await page.evaluate(async () => {
+    const { cardStore } = await import("/src/stores/index.ts");
+    const { ygopro } = await import("/src/api/index.ts");
+    cardStore.inner.push(window.__make("grave-target", 0, 0, ygopro.CardZone.GRAVE));
+    window.__selectTarget = async (cancelable, ids) => {
+      const cards = ids.map(id => cardStore.inner.find(c => c.uuid === id));
+      const bytes = [15, 0, Number(cancelable), 1, 1, cards.length];
+      for (const card of cards) {
+        const code = new Uint8Array(4);
+        new DataView(code.buffer).setUint32(0, card.code, true);
+        bytes.push(...code, card.location.controller,
+          card.location.zone === ygopro.CardZone.GRAVE ? 0x10 : 0x04,
+          card.location.sequence, 1);
+      }
+      await window.__wire(bytes);
+    };
+  });
+
+  // 37260677 的①效果先发可取消的场上选择，取消后才发完整候选。
+  await page.evaluate(() => window.__selectTarget(true, ["op"]));
+  await expect(page.getByTestId("field-selection-cancel")).toBeVisible({ timeout: 3000 });
+  expect(await sent(page)).toEqual([]);
+  await page.getByTestId("field-selection-cancel").click();
+  expect((await sent(page)).at(-1).slice(2)).toEqual([1, 255, 255, 255, 255]);
+  await page.evaluate(() => window.__selectTarget(false, ["op", "grave-target"]));
+  await expect(modal(page)).toBeVisible();
+  await expect(page.getByTestId("field-selection")).not.toBeVisible();
+  const grave = modal(page).locator('[data-testid="duel-select-card-option"][data-card-zone="GRAVE"][data-card-controller="0"]');
+  await expect(grave).toHaveCount(1);
+  await grave.click();
+  await page.locator('[data-testid="duel-select-card-submit"]:visible').click();
+  expect((await sent(page)).at(-1).slice(2)).toEqual([1, 1, 1]);
+
+  // 普通的不可取消单候选仍然可以自动提交。
+  await page.evaluate(async () => {
+    window.__sent = [];
+    await window.__selectTarget(false, ["op"]);
+  });
+  await expect.poll(() => sent(page)).toEqual([[3, 0, 1, 1, 0]]);
   await expect(page.getByTestId("field-selection")).not.toBeVisible();
 });
 
@@ -427,8 +664,11 @@ test("xyz materials stay attached to their own host without temporary field flig
   await expect(card(page, "a")).toBeVisible();
   await page.evaluate(() => window.__attach);
   await expect(card(page, "a")).toBeHidden();
-  // Reduced motion completes the same transition and does not strand the message queue.
-  await page.emulateMedia({ reducedMotion: "reduce" });
+  // 关闭动画仍完成区域变更，不阻塞消息队列。
+  await page.evaluate(async () => {
+    const { settingStore } = await import("/src/stores/settingStore/index.ts");
+    settingStore.saveAnimationConfig({ enabled: false });
+  });
   await page.evaluate(() => window.__move("b", "MZONE", 3, 2));
   await expect(card(page, "b")).toHaveAttribute("data-card-overlay-animation", "none");
   await expect(card(page, "b")).toBeHidden();
@@ -475,9 +715,9 @@ test("generic FACEUP equipment and continuous targets stay visible across wire q
     const { cardStore } = await import("/src/stores/index.ts");
     const { ygopro } = await import("/src/api/index.ts");
     const equip = window.__make("faceup-equip", 0, 0, ygopro.CardZone.GRAVE);
-    equip.meta.data.type = 2 | 0x40000;
+    equip.meta.data.type = equip.originalData.type = 2 | 0x40000;
     const continuous = window.__make("faceup-continuous", 2, 0, ygopro.CardZone.SZONE);
-    continuous.meta.data.type = 2 | 0x20000;
+    continuous.meta.data.type = continuous.originalData.type = 2 | 0x20000;
     continuous.location.position = ygopro.CardPosition.FACEUP;
     cardStore.inner.push(equip, continuous);
   });

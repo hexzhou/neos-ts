@@ -170,21 +170,20 @@ export default async (container: Container, move: MsgMove) => {
     }
   }
 
-  // 离场、盖放或成为素材后，不把旧关系带到下一次登场。
-  if (
-    [MZONE, SZONE].includes(from.zone) &&
-    (![MZONE, SZONE].includes(to.zone) ||
-      to.is_overlay ||
-      [FACEDOWN, FACEDOWN_ATTACK, FACEDOWN_DEFENSE].includes(to.position))
-  )
-    context.cardStore.clearRelations(target.uuid);
-
   // 更新信息
   if (to.is_overlay && [MZONE, SZONE].includes(to.zone)) {
     const host = context.cardStore.at(to.zone, to.controller, to.sequence);
     if (host) to.position = host.location.position;
   }
   target.code = code;
+  // 区域变化、成为或脱离素材、盖放时重置旧状态；同区移位或换控制方保留。
+  if (
+    !fromEmpty &&
+    (from.zone !== to.zone ||
+      from.is_overlay !== to.is_overlay ||
+      [FACEDOWN, FACEDOWN_ATTACK, FACEDOWN_DEFENSE].includes(to.position))
+  )
+    context.cardStore.resetFieldState(target);
   target.location = to;
   if (fromEmpty) {
     context.cardStore.inner.push(target);

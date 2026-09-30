@@ -48,9 +48,13 @@ import styles from "./index.module.scss";
 import {
   attack,
   type AttackOptions,
+  confirm,
+  type ConfirmOptions,
   focus,
   move,
   type MoveOptions,
+  shuffle,
+  type ShuffleOptions,
 } from "./springs";
 import type { SpringApiProps } from "./springs/types";
 
@@ -86,8 +90,19 @@ export const Card: React.FC<{ idx: number }> = React.memo(({ idx }) => {
     addToAnimation(() => move({ card, api }));
   }, []);
 
+  const graveSequence =
+    snap.location.zone === GRAVE && !snap.location.is_overlay
+      ? snap.location.sequence
+      : undefined;
+  // 其他卡进出墓地时只更新叠放层级，避免重播剩余卡片的移动动画。
+  useEffect(() => {
+    if (graveSequence !== undefined) api.set({ zIndex: graveSequence });
+  }, [api, graveSequence]);
+
   const [glowing, setGrowing] = useState(false);
   const [classFocus, setClassFocus] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [shuffling, setShuffling] = useState(false);
   const [overlayAnimation, setOverlayAnimation] =
     useState<MoveOptions["overlayAnimation"]>();
 
@@ -129,8 +144,32 @@ export const Card: React.FC<{ idx: number }> = React.memo(({ idx }) => {
       await focus({ card, api });
     });
 
+    register(Task.Confirm, async (options?: ConfirmOptions) => {
+      await addToAnimation(async () => {
+        if (options?.signal?.aborted) return;
+        setConfirming(true);
+        try {
+          await confirm({ card, api, options });
+        } finally {
+          setConfirming(false);
+        }
+      });
+    });
+
     register(Task.Attack, async (options: AttackOptions) => {
       await addToAnimation(() => attack({ card, api, options }));
+    });
+
+    register(Task.Shuffle, async (options?: ShuffleOptions) => {
+      await addToAnimation(async () => {
+        if (options?.signal?.aborted) return;
+        setShuffling(true);
+        try {
+          await shuffle({ card, api, options });
+        } finally {
+          setShuffling(false);
+        }
+      });
     });
   }, []);
 
@@ -380,6 +419,8 @@ export const Card: React.FC<{ idx: number }> = React.memo(({ idx }) => {
       data-card-position-value={location.position}
       data-card-is-overlay={location.is_overlay}
       data-card-overlay-animation={overlayAnimation ?? "none"}
+      data-card-confirming={confirming}
+      data-card-shuffling={shuffling}
       data-card-overlay-sequence={location.overlay_sequence}
       data-card-is-token={snap.isToken}
       data-card-status={snap.status}
@@ -395,6 +436,10 @@ export const Card: React.FC<{ idx: number }> = React.memo(({ idx }) => {
         /* 有可操作选项或者已被选中*/
         [styles.glowing]: glowing || snap.selectInfo.selected,
         [styles.shining]: snap.selectInfo.selectable, // 可以被选中
+        [styles["confirm-opponent-hand"]]:
+          confirming &&
+          location.zone === HAND &&
+          !container.context.matStore.isMe(location.controller),
       })}
       style={
         {
@@ -525,4 +570,6 @@ const call =
 
 export const callCardMove = call<MoveOptions>(Task.Move);
 export const callCardFocus = call(Task.Focus);
+export const callCardConfirm = call<ConfirmOptions>(Task.Confirm);
+export const callCardShuffle = call<ShuffleOptions>(Task.Shuffle);
 export const callCardAttack = call<AttackOptions>(Task.Attack);

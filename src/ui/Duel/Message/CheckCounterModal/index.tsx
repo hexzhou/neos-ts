@@ -40,12 +40,14 @@ export const CheckCounterModal = () => {
     `0x${snapCheckCounterModal.counterType?.toString(16)}`,
   );
 
-  const [selected, setSelected] = useState(new Array(options.length));
+  const [selected, setSelected] = useState<number[]>(
+    new Array(options.length).fill(0),
+  );
   const sum = selected.reduce((sum, current) => sum + current, 0);
   const finishable = sum === min;
 
   useEffect(() => {
-    setSelected(new Array(options.length));
+    setSelected(new Array(options.length).fill(0));
   }, [options]);
 
   const onFinish = () => {
@@ -55,6 +57,7 @@ export const CheckCounterModal = () => {
 
   return (
     <NeosModal
+      movable
       title={`请移除${min}个${counterName}`}
       open={isOpen}
       footer={
@@ -72,7 +75,7 @@ export const CheckCounterModal = () => {
                 className={styles["input-number"]}
                 min={0}
                 max={option.max}
-                defaultValue={0}
+                value={selected[idx] ?? 0}
                 onChange={(value) => {
                   setSelected((prevSelected) => {
                     let newSelected = [...prevSelected];

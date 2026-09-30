@@ -20,6 +20,8 @@ export interface MatState {
 
   chainSetting: ChainSetting; // 连锁类型
 
+  deckReserved: boolean; // 双方卡组是否反转
+
   timeLimits: BothSide<number> & {
     set: (controller: number, time: number) => void;
     activePlayer: number | null;

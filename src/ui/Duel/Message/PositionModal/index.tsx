@@ -104,6 +104,7 @@ export const PositionModal = () => {
 
   return (
     <NeosModal
+      movable
       title={(translations[language] ?? translations.cn).Title}
       open={isOpen}
       centered

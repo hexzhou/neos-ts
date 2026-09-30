@@ -27,7 +27,7 @@ export const ActionHistory: React.FC = () => {
     <Drawer
       open={isOpen}
       placement="right"
-      rootClassName={`${styles.root} duel-side-drawer`}
+      rootClassName={`${styles.root} duel-side-drawer duel-translucent-drawer`}
       data-testid="duel-history-drawer"
       className={styles.drawer}
       mask={false}

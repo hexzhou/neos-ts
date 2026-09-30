@@ -64,6 +64,7 @@ export const OptionModal = () => {
 
   return (
     <NeosModal
+      movable
       title={title}
       open={isOpen}
       footer={

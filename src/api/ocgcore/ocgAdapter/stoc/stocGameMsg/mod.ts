@@ -15,6 +15,7 @@ import MsgAttack from "./attack";
 import cardRelation from "./cardRelation";
 import MsgConfirmCardsAdapter from "./confirmCards";
 import MsgDamage from "./damage";
+import MsgDeckAdapter from "./deck";
 import MsgDrawAdapter from "./draw";
 import MsgFieldDisabledAdapter from "./fieldDisabled";
 import MsgHandResultAdapter from "./handResult";
@@ -73,6 +74,18 @@ export default class GameMsgAdapter implements StocAdapter {
 
     if (!PENETRATE.penetrate(func, gameMsg, gameData)) {
       switch (func) {
+        case GAME_MSG.MSG_REFRESH_DECK: {
+          gameMsg.shuffle_deck = MsgDeckAdapter(gameData, "refresh");
+          break;
+        }
+        case GAME_MSG.MSG_REVERSE_DECK: {
+          gameMsg.shuffle_deck = MsgDeckAdapter(gameData, "reverse");
+          break;
+        }
+        case GAME_MSG.MSG_DECK_TOP: {
+          gameMsg.shuffle_deck = MsgDeckAdapter(gameData, "top");
+          break;
+        }
         case GAME_MSG.MSG_START: {
           gameMsg.start = MsgStartAdapter(gameData);
           break;

@@ -143,6 +143,3 @@
   .node:not(:last-child)::after { left: calc(100% + 2px); width: 4px; }
   .disc { gap: 2px; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .button, .button::before, .disc { animation: none !important; transition: none !important; }
-}

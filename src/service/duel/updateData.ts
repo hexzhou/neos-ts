@@ -63,8 +63,6 @@ export default async (container: Container, updateData: MsgUpdateData) => {
             target.originalData = { ...newMeta.data };
           }
 
-          const meta = target.meta;
-          target.originalData ??= { ...meta.data };
           if (updateAction.updatesPosition && action.location !== undefined) {
             if (target.location.position !== action.location.position) {
               // Currently only update position
@@ -76,11 +74,13 @@ export default async (container: Container, updateData: MsgUpdateData) => {
                   ygopro.CardPosition.FACEUP_DEFENSE,
                 ].includes(action.location.position)
               )
-                store.clearRelations(target.uuid);
+                store.resetFieldState(target);
               // animation
               await callCardMove(target.uuid);
             }
           }
+          const meta = target.meta;
+          target.originalData ??= { ...meta.data };
           if (action?.type_ >= 0) {
             meta.data.type = action.type_;
             if (action.type_ & TYPE_TOKEN) {

@@ -19,7 +19,7 @@ export default async (container: Container, posChange: MsgPosChange) => {
         ygopro.CardPosition.FACEUP_DEFENSE,
       ].includes(posChange.cur_position)
     )
-      context.cardStore.clearRelations(target.uuid);
+      context.cardStore.resetFieldState(target);
 
     // TODO: 暂时用`Move`动画，后续可以单独实现一个改变表示形式的动画
     await callCardMove(target.uuid);

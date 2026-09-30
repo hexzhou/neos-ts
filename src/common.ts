@@ -457,7 +457,7 @@ function ifSetCard(setCodeToAnalyse: number, setCodeFromCard: number): boolean {
 export const STATUS_DISABLED = 0x0001;
 // const STATUS_TO_ENABLE = 0x0002
 // const STATUS_TO_DISABLE = 0x0004
-// const STATUS_PROC_COMPLETE = 0x0008
+export const STATUS_PROC_COMPLETE = 0x0008;
 // const STATUS_SET_TURN = 0x0010
 // const STATUS_NO_LEVEL = 0x0020
 // const STATUS_BATTLE_RESULT = 0x0040

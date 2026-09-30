@@ -54,10 +54,12 @@ export const SortCardModal = () => {
   );
 
   const onFinish = () => {
-    sendSortCardResponse(
-      container.conn,
-      items.map((item) => item.response),
-    );
+    // 协议按原卡片顺序返回排序后的位置。
+    const ranks = new Array<number>(items.length);
+    items.forEach((item, position) => {
+      ranks[item.response] = position;
+    });
+    sendSortCardResponse(container.conn, ranks);
     rs();
   };
   const onDragEnd = (event: DragEndEvent) => {
@@ -79,6 +81,7 @@ export const SortCardModal = () => {
 
   return (
     <NeosModal
+      movable
       title="请为下列卡牌排序"
       open={isOpen}
       footer={<Button onClick={onFinish}>finish</Button>}

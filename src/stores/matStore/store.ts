@@ -108,6 +108,7 @@ const initialState: Omit<MatState, "reset" | "clearPhaseCommands"> = {
     selectedList: [],
   },
   chainSetting: ChainSetting.CHAIN_SMART,
+  deckReserved: false,
   duelEnd: false,
   // methods
   isMe,
@@ -119,6 +120,7 @@ export class MatStore implements MatState, NeosStore {
   stopClock = initialState.stopClock;
   chains = initialState.chains;
   chainSetting = initialState.chainSetting;
+  deckReserved = initialState.deckReserved;
   timeLimits = initialState.timeLimits;
   initInfo = initialState.initInfo;
   selfType = initialState.selfType;
@@ -143,6 +145,7 @@ export class MatStore implements MatState, NeosStore {
   }
   reset(): void {
     this.chains = [];
+    this.deckReserved = false;
     this.timeLimits.me = -1;
     this.timeLimits.op = -1;
     this.timeLimits.activePlayer = null;

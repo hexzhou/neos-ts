@@ -205,6 +205,7 @@
     "SwitchMusicAccordingToTheEnvironment": "環境に応じて音楽を切り替える",
     "LanguageSettings": "言語",
     "AnimationSettings": "アニメーション",
+    "EnableAnimations": "アニメーションを有効にする",
     "AnimationSpeed": "アニメーション速度"
   },
   "DeckResults": {

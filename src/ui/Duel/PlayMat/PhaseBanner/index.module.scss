@@ -40,9 +40,3 @@
     opacity: 1;
   }
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .banner {
-    animation: none;
-  }
-}

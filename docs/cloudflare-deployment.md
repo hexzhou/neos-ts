@@ -27,6 +27,9 @@ npm run deploy
 `neos.config.prod.json`，并包含 `neos-assets` 下的 WebAssembly、图片和音频。
 不要使用 `build:prod`，该命令保留了原站的 CDN 路径。
 
+测试站 https://neos-beta.ihex.dev 使用 `wrangler.beta.jsonc`，通过
+`npm run deploy:beta` 部署。两个站点都使用当前工作区的同一套生产构建。
+
 只部署浏览器网页及静态资源，不运行或上传 `agent/` 中的 AI Agent，
 也不需要配置 LLM 凭据。登录、匹配、卡牌数据和对战继续使用生产配置中的外部服务。
 新域名下的登录回调和外部服务跨域权限需要由对应服务支持。

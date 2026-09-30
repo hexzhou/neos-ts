@@ -34,7 +34,7 @@ export const DeckCard: React.FC<{
       }),
     });
     drag(ref);
-    const [showText, setShowText] = useState(true);
+    const [loadedCode, setLoadedCode] = useState<number | null>(null);
     const limitCnt = is408 ? forbidden_408.get(value) : forbidden.get(value);
 
     return (
@@ -54,11 +54,15 @@ export const DeckCard: React.FC<{
           e.preventDefault();
         }}
       >
-        {showText && <div className={styles.cardname}>{value.text.name}</div>}
+        {loadedCode !== value.id && (
+          <div className={styles.cardname}>{value.text.name}</div>
+        )}
         <YgoCard
           className={styles.cardcover}
           code={value.id}
-          onLoad={() => setShowText(false)}
+          loading={source === "search" ? "lazy" : "eager"}
+          onLoad={() => setLoadedCode(value.id)}
+          onError={() => setLoadedCode(null)}
         />
         {limitCnt !== undefined && (
           <img

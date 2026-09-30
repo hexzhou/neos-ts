@@ -5,6 +5,7 @@ import { useSnapshot } from "valtio";
 
 import { matStore, replayStore, roomStore } from "@/stores";
 import { remainingTime } from "@/stores/matStore/clock";
+import { settingStore } from "@/stores/settingStore";
 
 import styles from "./index.module.scss";
 
@@ -15,17 +16,6 @@ export const LifeBar: React.FC = () => {
   const snapPlayer = useSnapshot(roomStore);
   const { isReplay } = useSnapshot(replayStore);
   const { currentPlayer } = useSnapshot(matStore);
-
-  const [meLife, setMeLife] = React.useState(0);
-  const [opLife, setOpLife] = React.useState(0);
-
-  useEffect(() => {
-    setMeLife(snapInitInfo.me.life);
-  }, [snapInitInfo.me.life]);
-
-  useEffect(() => {
-    setOpLife(snapInitInfo.op.life);
-  }, [snapInitInfo.op.life]);
 
   const clock = useSnapshot(matStore.timeLimits);
   const [now, setNow] = useState(Date.now);
@@ -62,7 +52,7 @@ export const LifeBar: React.FC = () => {
       <LifeBarItem
         active={!matStore.isMe(currentPlayer)}
         name={snapPlayer.getOpPlayer()?.name ?? "?"}
-        life={opLife}
+        life={snapInitInfo.op.life}
         timeLimit={opTimeLimit}
         clockActive={opClockActive}
         totalTime={Math.max(clock.limit, snapPlayer.timeLimit ?? 0)}
@@ -73,7 +63,7 @@ export const LifeBar: React.FC = () => {
       <LifeBarItem
         active={matStore.isMe(currentPlayer)}
         name={snapPlayer.getMePlayer()?.name ?? "?"}
-        life={meLife}
+        life={snapInitInfo.me.life}
         timeLimit={myTimeLimit}
         clockActive={myClockActive}
         totalTime={Math.max(clock.limit, snapPlayer.timeLimit ?? 0)}
@@ -198,6 +188,7 @@ const LifeBarItem: React.FC<{
 };
 
 const useAnimatedLifeNumber = (life: number) => {
+  const { enabled } = useSnapshot(settingStore.animation);
   const [displayLife, setDisplayLife] = useState(life);
   const displayLifeRef = React.useRef(life);
 
@@ -206,16 +197,21 @@ const useAnimatedLifeNumber = (life: number) => {
     const to = life;
 
     if (from === to) return;
-    if (
-      document.hidden ||
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    ) {
+    if (document.hidden || !enabled) {
       displayLifeRef.current = to;
       setDisplayLife(to);
       return;
     }
 
     let frame = 0;
+    const finish = () => {
+      cancelAnimationFrame(frame);
+      displayLifeRef.current = to;
+      setDisplayLife(to);
+    };
+    const finishWhenHidden = () => {
+      if (document.hidden) finish();
+    };
     const start = performance.now();
     const animate = (now: number) => {
       const progress = Math.min(1, (now - start) / LIFE_ANIMATION_DURATION);
@@ -231,9 +227,13 @@ const useAnimatedLifeNumber = (life: number) => {
     };
 
     frame = requestAnimationFrame(animate);
+    document.addEventListener("visibilitychange", finishWhenHidden);
 
-    return () => cancelAnimationFrame(frame);
-  }, [life]);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("visibilitychange", finishWhenHidden);
+    };
+  }, [life, enabled]);
 
   return displayLife;
 };

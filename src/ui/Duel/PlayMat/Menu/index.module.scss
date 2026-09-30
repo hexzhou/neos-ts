@@ -16,16 +16,6 @@
   gap: 0.5rem;
 }
 
-.select-manager {
-  .btn {
-    font-size: 0.9rem;
-  }
-
-  .cancle {
-    color: red;
-  }
-}
-
 // 与场地共用坐标系，缩放时保持按钮和区域的相对位置。
 .chain-control {
   position: absolute;

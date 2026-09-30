@@ -1,7 +1,18 @@
 import { proxy } from "valtio";
 
-import { CardData, CardMeta, ygopro } from "@/api";
-import { STATUS_DISABLED, STATUS_FORBIDDEN } from "@/common";
+import { CardData, CardMeta, fetchCard, ygopro } from "@/api";
+import {
+  STATUS_DISABLED,
+  STATUS_FORBIDDEN,
+  STATUS_PROC_COMPLETE,
+  TYPE_FUSION,
+  TYPE_LINK,
+  TYPE_MONSTER,
+  TYPE_RITUAL,
+  TYPE_SPSUMMON,
+  TYPE_SYNCHRO,
+  TYPE_XYZ,
+} from "@/common";
 
 import type { Interactivity } from "./matStore/types";
 import { type NeosStore } from "./shared";
@@ -115,6 +126,19 @@ export class CardStore implements NeosStore {
           : card.effectTargets?.filter((target) => target !== uuid);
     }
   }
+  resetFieldState(card: CardType): void {
+    // 只清除无效标记对应的状态位，其他协议状态仍由后端维护。
+    card.status &= ~(STATUS_DISABLED | STATUS_FORBIDDEN);
+    card.counters = {};
+    card.targeted = false;
+    this.clearRelations(card.uuid);
+    const data = fetchCard(card.code || card.meta.id).data;
+    // 卡片资料缺失时，保留已有的原始数据作为恢复依据。
+    card.meta.data = {
+      ...(data.type !== undefined ? data : card.originalData),
+    };
+    card.originalData = { ...card.meta.data };
+  }
   reset(): void {
     this.inner = [];
   }
@@ -122,7 +146,42 @@ export class CardStore implements NeosStore {
 
 // TODO: provided in class
 export function isCardDisabled(card: CardType): boolean {
-  return (card.status & (STATUS_DISABLED | STATUS_FORBIDDEN)) > 0;
+  const { zone, position, is_overlay } = card.location;
+  return (
+    !is_overlay &&
+    [ygopro.CardZone.MZONE, ygopro.CardZone.SZONE].includes(zone) &&
+    [
+      ygopro.CardPosition.FACEUP,
+      ygopro.CardPosition.FACEUP_ATTACK,
+      ygopro.CardPosition.FACEUP_DEFENSE,
+    ].includes(position) &&
+    (card.status & (STATUS_DISABLED | STATUS_FORBIDDEN)) > 0
+  );
+}
+
+export function hasIncompleteSummon(card: CardType): boolean {
+  const { zone, position, is_overlay } = card.location;
+  const type = card.originalData?.type ?? card.meta.data.type ?? 0;
+  return (
+    !is_overlay &&
+    [ygopro.CardZone.GRAVE, ygopro.CardZone.REMOVED].includes(zone) &&
+    [
+      ygopro.CardPosition.FACEUP,
+      ygopro.CardPosition.FACEUP_ATTACK,
+      ygopro.CardPosition.FACEUP_DEFENSE,
+    ].includes(position) &&
+    !!(type & TYPE_MONSTER) &&
+    !!(
+      type &
+      (TYPE_FUSION |
+        TYPE_RITUAL |
+        TYPE_SYNCHRO |
+        TYPE_XYZ |
+        TYPE_LINK |
+        TYPE_SPSUMMON)
+    ) &&
+    !(card.status & STATUS_PROC_COMPLETE)
+  );
 }
 
 export const cardStore = proxy(new CardStore());
